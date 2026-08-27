@@ -1,0 +1,36 @@
+{
+  "name": "digital-earth-intelligent-situation-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:mock": "vite --mode mock",
+    "build": "vite build",
+    "preview": "vite preview",
+    "export-seed": "tsx scripts/export-seed.mts"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "cesium": "^1.119.0",
+    "dayjs": "^1.11.13",
+    "echarts": "^5.5.1",
+    "element-plus": "^2.8.0",
+    "marked": "^18.0.11",
+    "pinia": "^2.2.2",
+    "vue": "^3.4.38",
+    "vue-echarts": "^7.0.3",
+    "axios": "^1.7.7",
+    "vue-router": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "@vitejs/plugin-vue": "^5.1.2",
+    "sass": "^1.77.8",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vite-plugin-cesium": "^1.2.23",
+    "vue-tsc": "^2.1.4"
+  }
+}

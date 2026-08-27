@@ -1,0 +1,492 @@
+[
+  {
+    "id": "THM-PKG-TAIWAN",
+    "name": "海峡防空与重点空情研判专题 (东南复合集)",
+    "theme": "海峡防空识别区战机突防与水面驱逐舰多维防空研判",
+    "theater": "taiwan",
+    "visible": true,
+    "expanded": true,
+    "opacity": 75,
+    "color": "#00d2ff",
+    "centerCoords": [
+      120.5,
+      24.5
+    ],
+    "cameraAltitude": 950000,
+    "targetsExpanded": true,
+    "targetsVisible": true,
+    "regionsExpanded": true,
+    "regionsVisible": true,
+    "relationsExpanded": true,
+    "relationsVisible": true,
+    "workItemsExpanded": true,
+    "workItemsVisible": true,
+    "targets": [
+      {
+        "id": "Target-001",
+        "name": "【敌方重点突防战机】VIPER-01",
+        "callsign": "VIPER-01",
+        "color": "#ff4d4f",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-001-POS",
+            "name": "目标实体点位与基本态势",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-001-TRACK",
+            "name": "时空机动轨迹航线",
+            "featureKey": "track",
+            "visible": true
+          },
+          {
+            "id": "F-001-RADAR",
+            "name": "机载相控阵雷达扫描锥 (180km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-001-REL",
+            "name": "超视距反舰打击威胁连线",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "id": "Target-005",
+        "name": "【敌方伴飞电子战机】SHADOW-02",
+        "callsign": "SHADOW-02",
+        "color": "#b37feb",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-005-POS",
+            "name": "目标实体点位与基本态势",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-005-TRACK",
+            "name": "时空机动轨迹航线",
+            "featureKey": "track",
+            "visible": true
+          },
+          {
+            "id": "F-005-RADAR",
+            "name": "电子战压制干扰范围 (140km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-005-REL",
+            "name": "战术伴飞护航掩护链路 (24.5km)",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "id": "Target-002",
+        "name": "【敌方预警指挥机】SENTINEL-09",
+        "callsign": "SENTINEL-09",
+        "color": "#faad14",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-002-POS",
+            "name": "目标实体点位与基本态势",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-002-TRACK",
+            "name": "高空巡逻时空轨迹",
+            "featureKey": "track",
+            "visible": true
+          },
+          {
+            "id": "F-002-RADAR",
+            "name": "360°相控阵雷达立体扫描球 (450km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-002-REL",
+            "name": "远程战术数据链指挥引导链路",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "id": "Target-003",
+        "name": "【我方052D型驱逐舰】PLAN-DDG-173 长沙舰",
+        "callsign": "PLAN-DDG-173",
+        "color": "#00d2ff",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-003-POS",
+            "name": "舰艇实体点位与水面态势",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-003-TRACK",
+            "name": "海峡深水巡航轨迹",
+            "featureKey": "track",
+            "visible": true
+          },
+          {
+            "id": "F-003-RADAR",
+            "name": "346A相控阵雷达防空探测穹顶 (260km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-003-REL",
+            "name": "陆海防空协同互联网络",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "id": "Target-004",
+        "name": "【我方沿海防空导弹阵地】HQ9B-04",
+        "callsign": "HQ9B-04",
+        "color": "#52c41a",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-004-POS",
+            "name": "防空阵地实体点位与战备态势",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-004-RADAR",
+            "name": "相控阵制导雷达照射截获扇面 (200km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-004-REL",
+            "name": "海陆联合防空协同数据链",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      }
+    ],
+    "regions": [
+      {
+        "id": "REG-001",
+        "name": "【红区】东南沿海地空导弹拦截杀伤包络区",
+        "color": "#ff4d4f",
+        "visible": true
+      },
+      {
+        "id": "REG-002",
+        "name": "【黄区】海峡中线以东海空管制定界与巡逻走廊",
+        "color": "#faad14",
+        "visible": true
+      },
+      {
+        "id": "REG-003",
+        "name": "【蓝区】我方水面驱逐舰防空协同与海峡扫描区",
+        "color": "#00d2ff",
+        "visible": true
+      }
+    ],
+    "relations": [
+      {
+        "id": "REL-001",
+        "name": "伴飞掩护与电磁压制链路 (VIPER ↔ SHADOW)",
+        "color": "#b37feb",
+        "visible": true
+      },
+      {
+        "id": "REL-002",
+        "name": "预警雷达协同警戒分配链路 (SENTINEL ➔ VIPER)",
+        "color": "#faad14",
+        "visible": true
+      },
+      {
+        "id": "REL-003",
+        "name": "空中突防对海反舰威胁链路 (VIPER ➔ 长沙舰)",
+        "color": "#ff4d4f",
+        "visible": true
+      },
+      {
+        "id": "REL-004",
+        "name": "驱逐舰防空拦截锁定链路 (长沙舰 ➔ VIPER)",
+        "color": "#00d2ff",
+        "visible": true
+      },
+      {
+        "id": "REL-005",
+        "name": "沿海HQ9B地空导弹拦截锁定链路 (HQ9B ➔ VIPER)",
+        "color": "#52c41a",
+        "visible": true
+      }
+    ],
+    "workItems": [
+      {
+        "id": "SIM-HYPO-001",
+        "name": "【推演假设】低空超音速突防航线假说 (紫色虚线)",
+        "color": "#b37feb",
+        "visible": true
+      }
+    ]
+  },
+  {
+    "id": "THM-PKG-MIDEAST",
+    "name": "中东波斯湾与霍尔木兹海峡研判专题 (中东复合集)",
+    "theme": "阿曼湾第46批远海护航安全与霍尔木兹海峡咽喉水道防空研判",
+    "theater": "mideast",
+    "visible": true,
+    "expanded": false,
+    "opacity": 75,
+    "color": "#faad14",
+    "centerCoords": [
+      55.5,
+      26
+    ],
+    "cameraAltitude": 1150000,
+    "targetsExpanded": true,
+    "targetsVisible": true,
+    "regionsExpanded": true,
+    "regionsVisible": true,
+    "relationsExpanded": true,
+    "relationsVisible": true,
+    "workItemsExpanded": true,
+    "workItemsVisible": true,
+    "targets": [
+      {
+        "id": "Target-ME-001",
+        "name": "【中东·我方052D型护航驱逐舰】PLAN-DDG-163 焦作舰",
+        "callsign": "PLAN-DDG-163",
+        "color": "#00d2ff",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-ME001-POS",
+            "name": "舰艇实体点位与阿曼湾护航态势",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-ME001-TRACK",
+            "name": "阿曼湾深水护航轨迹",
+            "featureKey": "track",
+            "visible": true
+          },
+          {
+            "id": "F-ME001-RADAR",
+            "name": "346A相控阵雷达防空探测穹顶 (260km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-ME001-REL",
+            "name": "海空防空监视与商船协同链路",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "id": "Target-ME-002",
+        "name": "【中东·外军重点突防战机】FALCON-01",
+        "callsign": "FALCON-01",
+        "color": "#ff4d4f",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-ME002-POS",
+            "name": "战机实体点位与波斯湾空情",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-ME002-TRACK",
+            "name": "波斯湾机动突防航迹",
+            "featureKey": "track",
+            "visible": true
+          },
+          {
+            "id": "F-ME002-RADAR",
+            "name": "AESA相控阵前向火控雷达锥 (180km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-ME002-REL",
+            "name": "对海反舰打击威胁连线",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "id": "Target-ME-003",
+        "name": "【中东·外军预警指挥机】HAWKEYE-07",
+        "callsign": "HAWKEYE-07",
+        "color": "#faad14",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-ME003-POS",
+            "name": "预警机实体点位与空情态势",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-ME003-TRACK",
+            "name": "波斯湾南部巡航航迹",
+            "featureKey": "track",
+            "visible": true
+          },
+          {
+            "id": "F-ME003-RADAR",
+            "name": "360°相控阵雷达立体扫描球 (420km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-ME003-REL",
+            "name": "战区空情数据链分发指挥链路",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "id": "Target-ME-004",
+        "name": "【中东·外军伴随电子战机】RAVEN-03",
+        "callsign": "RAVEN-03",
+        "color": "#b37feb",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-ME004-POS",
+            "name": "电子战机实体点位与态势",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-ME004-TRACK",
+            "name": "伴随巡逻电子压制航迹",
+            "featureKey": "track",
+            "visible": true
+          },
+          {
+            "id": "F-ME004-RADAR",
+            "name": "战术电子压制扇面 (150km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-ME004-REL",
+            "name": "突防编队协同伴飞链路 (28.5km)",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "id": "Target-ME-005",
+        "name": "【中东·沿岸重型防空导弹阵地】SAM-ME-01",
+        "callsign": "SAM-ME-01",
+        "color": "#52c41a",
+        "visible": true,
+        "expanded": false,
+        "features": [
+          {
+            "id": "F-ME005-POS",
+            "name": "海峡山地阵位实体点位",
+            "featureKey": "position",
+            "visible": true
+          },
+          {
+            "id": "F-ME005-RADAR",
+            "name": "相控阵制导照射封锁扇面 (280km)",
+            "featureKey": "radar",
+            "visible": true
+          },
+          {
+            "id": "F-ME005-REL",
+            "name": "海峡咽喉水道立体拦截包络",
+            "featureKey": "relation",
+            "visible": true
+          }
+        ]
+      }
+    ],
+    "regions": [
+      {
+        "id": "REG-ME-001",
+        "name": "【中东红区】霍尔木兹海峡重型防空威胁杀伤区",
+        "color": "#ff4d4f",
+        "visible": true
+      },
+      {
+        "id": "REG-ME-002",
+        "name": "【中东黄区】波斯湾中南部空域战术巡逻管制定界区",
+        "color": "#faad14",
+        "visible": true
+      },
+      {
+        "id": "REG-ME-003",
+        "name": "【中东蓝区】阿曼湾国际商船护航与水面协同防空区",
+        "color": "#00d2ff",
+        "visible": true
+      }
+    ],
+    "relations": [
+      {
+        "id": "REL-ME-001",
+        "name": "FALCON与RAVEN伴飞协同链路 (28.5km)",
+        "color": "#b37feb",
+        "visible": true
+      },
+      {
+        "id": "REL-ME-002",
+        "name": "HAWKEYE-07预警指挥分配链路 (210km)",
+        "color": "#faad14",
+        "visible": true
+      },
+      {
+        "id": "REL-ME-003",
+        "name": "FALCON反舰突防威胁链路 (195km)",
+        "color": "#ff4d4f",
+        "visible": true
+      },
+      {
+        "id": "REL-ME-004",
+        "name": "焦作舰护航防御拦截链路 (195km)",
+        "color": "#00d2ff",
+        "visible": true
+      },
+      {
+        "id": "REL-ME-005",
+        "name": "要塞防空立体封锁拦截链路 (240km)",
+        "color": "#52c41a",
+        "visible": true
+      }
+    ]
+  }
+]

@@ -1,0 +1,189 @@
+/**
+ * @file main.scss
+ * @description 深色军工与指挥大屏战术主题样式规范
+ */
+
+@import '@/assets/styles/element-override.scss';
+
+:root {
+  --bg-primary: #080e1a;
+  --bg-secondary: #0f1a2e;
+  --bg-panel: rgba(13, 23, 40, 0.9);
+  --bg-panel-hover: rgba(18, 32, 54, 0.98);
+  --bg-glass: rgba(10, 19, 34, 0.85);
+
+  --border-color: rgba(0, 210, 255, 0.28);
+  --border-focus: #00d2ff;
+  --border-accent: rgba(0, 210, 255, 0.55);
+
+  --text-primary: #f0f6fc;
+  --text-secondary: #a2b7d4;
+  --text-muted: #6e87ab;
+
+  --accent-cyan: #00d2ff;
+  --accent-blue: #1890ff;
+  --accent-green: #52c41a;
+  --accent-amber: #faad14;
+  --accent-red: #ff4d4f;
+  --accent-purple: #b37feb;
+
+  --glow-cyan: 0 0 14px rgba(0, 210, 255, 0.45);
+  --glow-red: 0 0 14px rgba(255, 77, 79, 0.5);
+  --glow-amber: 0 0 14px rgba(250, 173, 20, 0.5);
+
+  --font-family-tactical: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-family-mono: 'Consolas', 'Courier New', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family-tactical);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 战术边框面板 */
+.tactical-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(14px);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  transition: all 0.25s ease;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid var(--accent-cyan);
+    border-left: 2px solid var(--accent-cyan);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    border-bottom: 2px solid var(--accent-cyan);
+    border-right: 2px solid var(--accent-cyan);
+  }
+}
+
+.tactical-panel-header {
+  height: 40px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 210, 255, 0.08);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  color: var(--accent-cyan);
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+/* 战术滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(8, 14, 26, 0.7);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 210, 255, 0.35);
+  border-radius: 3px;
+
+  &:hover {
+    background: rgba(0, 210, 255, 0.7);
+  }
+}
+
+/* 标签与徽章 */
+.badge-fact {
+  background: rgba(0, 210, 255, 0.18);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(0, 210, 255, 0.5);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-work {
+  background: rgba(250, 173, 20, 0.18);
+  color: var(--accent-amber);
+  border: 1px dashed rgba(250, 173, 20, 0.6);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-hypothesis {
+  background: rgba(179, 127, 235, 0.18);
+  color: var(--accent-purple);
+  border: 1px dashed rgba(179, 127, 235, 0.6);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-critical {
+  background: rgba(255, 77, 79, 0.22);
+  color: var(--accent-red);
+  border: 1px solid rgba(255, 77, 79, 0.6);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* 常用颜色类 */
+.text-cyan { color: var(--accent-cyan) !important; }
+.text-green { color: var(--accent-green) !important; }
+.text-amber { color: var(--accent-amber) !important; }
+.text-red { color: var(--accent-red) !important; }
+.text-purple { color: var(--accent-purple) !important; }
+
+/* 彻底隐藏 Cesium 原生 Logo 与版权信息条 */
+.cesium-widget-credits,
+.cesium-credit-logoContainer,
+.cesium-credit-textContainer,
+.cesium-credit-expand-link {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "WORK-001",
+    "type": "simulated_track",
+    "label": "【推演】Target-001 低空超音速突防航线",
+    "isHypothesis": true,
+    "createdBy": "simulation_engine",
+    "basis": "基于海空突防算法包计算生成",
+    "relatedFactTargetId": "Target-001",
+    "payload": {
+      "points": [[122.85, 24.65, 8500], [121.20, 24.10, 1500], [119.55, 24.15, 200]]
+    },
+    "createdAt": "2026-08-25 15:21:30"
+  }
+]

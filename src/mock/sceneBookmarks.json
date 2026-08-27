@@ -1,0 +1,9 @@
+[
+  { "id": "BM-GLOBAL", "title": "三维地球全貌居中", "destination": [116.0, 26.0, 14500000], "headingDeg": 0, "pitchDeg": -89.9, "rollDeg": 0 },
+  { "id": "BM-1", "title": "【战区一】东南海峡重点战区全景", "destination": [120.5, 24.5, 950000], "headingDeg": 0, "pitchDeg": -89.9, "rollDeg": 0 },
+  { "id": "BM-2", "title": "【战区一】空中突防战机战区视窗", "destination": [122.85, 24.65, 650000], "headingDeg": 0, "pitchDeg": -89.9, "rollDeg": 0 },
+  { "id": "BM-3", "title": "【战区一】我方驱逐舰海峡水域视窗", "destination": [119.55, 24.15, 650000], "headingDeg": 0, "pitchDeg": -89.9, "rollDeg": 0 },
+  { "id": "BM-ME-1", "title": "【战区二】中东霍尔木兹海峡与波斯湾全景", "destination": [55.50, 26.00, 1150000], "headingDeg": 0, "pitchDeg": -89.9, "rollDeg": 0 },
+  { "id": "BM-ME-2", "title": "【战区二】中东阿曼湾护航水域特写", "destination": [57.85, 24.85, 650000], "headingDeg": 0, "pitchDeg": -89.9, "rollDeg": 0 },
+  { "id": "BM-ME-3", "title": "【战区二】中东波斯湾突防空域特写", "destination": [52.45, 26.85, 650000], "headingDeg": 0, "pitchDeg": -89.9, "rollDeg": 0 }
+]

@@ -1,0 +1,19 @@
+{
+  "id": "SCENE-DEFAULT-01",
+  "name": "东南海峡与中东波斯湾重点方向全球态势场景",
+  "theme": "海空重点目标监视与多战区防空协同研判",
+  "productVersionId": "PROD-SITUATION-EASTSEA-v2.1",
+  "referenceMode": "follow_latest",
+  "spatialWindow": "全球重点海空域",
+  "timeWindow": ["2026-08-25 13:00:00", "2026-08-25 15:30:00"],
+  "cameraView": {
+    "destination": [116.0, 26.0, 14500000],
+    "orientation": { "heading": 0, "pitch": -89.9, "roll": 0 }
+  },
+  "focusedTargetIds": ["Target-001", "Target-ME-001"],
+  "visibleLayerIds": ["LAYER-FACTS", "LAYER-ENV", "LAYER-WORK"],
+  "workContents": [],
+  "createdAt": "2026-08-25 14:00:00",
+  "updatedAt": "2026-08-25 15:20:00",
+  "isArchive": false
+}

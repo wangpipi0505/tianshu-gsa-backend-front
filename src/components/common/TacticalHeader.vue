@@ -1,0 +1,311 @@
+<template>
+  <header class="tactical-header">
+    <!-- 左侧系统标识与状态 -->
+    <div class="header-left">
+      <div class="logo-box">
+        <el-icon class="logo-icon"><Platform /></el-icon>
+        <div class="title-group">
+          <div class="main-title">数字地球与智能态势显示系统</div>
+          <div class="sub-title">智能情报态势显示工作台</div>
+        </div>
+      </div>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span class="status-text">态势服务: 正常运行 (版本 2.1)</span>
+      </div>
+    </div>
+
+    <!-- 中间主业务导航 -->
+    <nav class="header-nav">
+      <router-link to="/workbench" class="nav-item" active-class="active">
+        <el-icon><Compass /></el-icon>
+        <span>三维态势主工作台</span>
+      </router-link>
+      <router-link to="/fusion" class="nav-item" active-class="active">
+        <el-icon><Connection /></el-icon>
+        <span>多源时空数据融合</span>
+      </router-link>
+      <router-link to="/analytics" class="nav-item" active-class="active">
+        <el-icon><DataAnalysis /></el-icon>
+        <span>多维统计研判</span>
+      </router-link>
+      <router-link to="/ontology" class="nav-item" active-class="active">
+        <el-icon><Share /></el-icon>
+        <span>领域本体知识图谱</span>
+      </router-link>
+    </nav>
+
+    <!-- 右侧场景信息与时钟 -->
+    <div class="header-right">
+      <div class="scene-badge" @click="emit('open-scene-modal')">
+        <el-icon><FolderOpened /></el-icon>
+        <span class="scene-name">{{ sceneStore.activeScene.name }}</span>
+        <span :class="['mode-tag', sceneStore.activeScene.referenceMode]">
+          {{ sceneStore.activeScene.referenceMode === 'follow_latest' ? '跟随最新版本' : '固定版本快照' }}
+        </span>
+      </div>
+
+      <div class="clock-box">
+        <div class="bjt-time">北京时间: {{ bjtTime }}</div>
+        <div class="utc-time">世界时: {{ utcTime }}</div>
+      </div>
+
+      <el-button size="small" type="primary" plain @click="emit('toggle-agent')">
+        <el-icon><ChatDotRound /></el-icon>
+        <span>研判助手</span>
+      </el-button>
+    </div>
+  </header>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useSceneStore } from '@/stores/sceneStore'
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import {
+  Platform,
+  Compass,
+  Connection,
+  DataAnalysis,
+  Share,
+  FolderOpened,
+  ChatDotRound
+} from '@element-plus/icons-vue'
+
+dayjs.extend(utc)
+
+const emit = defineEmits(['toggle-agent', 'open-scene-modal'])
+const sceneStore = useSceneStore()
+
+const bjtTime = ref('')
+const utcTime = ref('')
+let timer: any = null
+
+function updateClock() {
+  const now = dayjs()
+  bjtTime.value = now.format('HH:mm:ss')
+  utcTime.value = now.utc().format('HH:mm:ss')
+}
+
+onMounted(() => {
+  updateClock()
+  timer = setInterval(updateClock, 1000)
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
+</script>
+
+<style scoped lang="scss">
+.tactical-header {
+  height: 56px;
+  background: linear-gradient(180deg, rgba(14, 25, 43, 0.98) 0%, rgba(9, 16, 29, 0.96) 100%);
+  border-bottom: 1px solid rgba(0, 210, 255, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  z-index: 100;
+  user-select: none;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .logo-icon {
+      font-size: 26px;
+      color: #00d2ff;
+      filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.65));
+    }
+
+    .title-group {
+      .main-title {
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        background: linear-gradient(90deg, #ffffff 0%, #00d2ff 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .sub-title {
+        font-size: 11px;
+        color: #6e87ab;
+        letter-spacing: 0.5px;
+      }
+    }
+  }
+
+  .status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 210, 255, 0.08);
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 210, 255, 0.25);
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #52c41a;
+      box-shadow: 0 0 8px #52c41a;
+    }
+
+    .status-text {
+      font-size: 12px;
+      color: #a2b7d4;
+    }
+  }
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    color: #a2b7d4;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+
+    &:hover {
+      color: #00d2ff;
+      background: rgba(0, 210, 255, 0.12);
+    }
+
+    &.active {
+      color: #00d2ff;
+      background: rgba(0, 210, 255, 0.2);
+      border-color: rgba(0, 210, 255, 0.45);
+      box-shadow: 0 0 12px rgba(0, 210, 255, 0.35) inset;
+      font-weight: 600;
+    }
+  }
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  .scene-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(14, 28, 48, 0.85);
+    border: 1px solid rgba(0, 210, 255, 0.35);
+    padding: 6px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: #00d2ff;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.35);
+    }
+
+    .scene-name {
+      color: #f0f6fc;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mode-tag {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 2px;
+
+      &.follow_latest {
+        background: rgba(82, 196, 26, 0.2);
+        color: #52c41a;
+        border: 1px solid rgba(82, 196, 26, 0.5);
+      }
+
+      &.fixed_version {
+        background: rgba(250, 173, 20, 0.2);
+        color: #faad14;
+        border: 1px solid rgba(250, 173, 20, 0.5);
+      }
+    }
+  }
+
+  .clock-box {
+    text-align: right;
+    font-family: var(--font-family-mono);
+    line-height: 1.3;
+
+    .bjt-time {
+      color: #00d2ff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .utc-time {
+      color: #6e87ab;
+      font-size: 11px;
+    }
+  }
+}
+
+@media (max-width: 1440px) {
+  .tactical-header {
+    padding: 0 10px;
+  }
+
+  .header-left {
+    gap: 10px;
+    .title-group .main-title {
+      font-size: 15px;
+    }
+    .status-indicator {
+      display: none;
+    }
+  }
+
+  .header-nav {
+    gap: 4px;
+    .nav-item {
+      padding: 6px 10px;
+      font-size: 13px;
+      gap: 5px;
+    }
+  }
+
+  .header-right {
+    gap: 10px;
+    .scene-badge .scene-name {
+      max-width: 120px;
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+  .header-left .title-group .sub-title {
+    display: none;
+  }
+  .header-right .clock-box .utc-time {
+    display: none;
+  }
+}
+</style>

@@ -1,0 +1,265 @@
+/**
+ * @file element-override.scss
+ * @description Element Plus 深色战术主题定制覆盖与字号调优
+ */
+
+.el-button {
+  border-radius: 3px;
+  font-weight: 500;
+  font-size: 13px;
+  border: 1px solid rgba(0, 210, 255, 0.35);
+  background: rgba(14, 28, 48, 0.85);
+  color: #f0f6fc;
+
+  &--small {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  &:hover, &:focus {
+    background: rgba(0, 210, 255, 0.22);
+    border-color: #00d2ff;
+    color: #00d2ff;
+    box-shadow: 0 0 10px rgba(0, 210, 255, 0.45);
+  }
+
+  &--primary {
+    background: #0077aa;
+    border-color: #00d2ff;
+    color: #ffffff;
+
+    &:hover, &:focus {
+      background: #0099cc;
+      border-color: #00e5ff;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(0, 210, 255, 0.65);
+    }
+  }
+
+  &--danger {
+    background: rgba(255, 77, 79, 0.25);
+    border-color: rgba(255, 77, 79, 0.65);
+    color: #ff7875;
+
+    &:hover {
+      background: rgba(255, 77, 79, 0.45);
+      border-color: #ff4d4f;
+      color: #ffffff;
+    }
+  }
+
+  &--warning {
+    background: rgba(250, 173, 20, 0.25);
+    border-color: rgba(250, 173, 20, 0.65);
+    color: #ffd666;
+  }
+}
+
+.el-overlay {
+  overflow: hidden !important;
+}
+
+.el-dialog {
+  max-width: 94vw !important;
+  max-height: 88vh !important;
+  margin: 5vh auto !important;
+  background: rgba(12, 21, 36, 0.96) !important;
+  border: 1px solid rgba(0, 210, 255, 0.45) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(16px);
+  border-radius: 4px;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+
+  .el-dialog__header {
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(0, 210, 255, 0.25);
+    padding: 14px 18px;
+    margin-right: 0;
+
+    .el-dialog__title {
+      color: #00d2ff;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  .el-dialog__body {
+    flex: 1 1 auto;
+    overflow-y: auto !important;
+    max-height: calc(88vh - 120px) !important;
+    color: #f0f6fc;
+    padding: 16px 18px;
+    font-size: 13px;
+  }
+
+  .el-dialog__footer {
+    flex-shrink: 0;
+    border-top: 1px solid rgba(0, 210, 255, 0.25);
+    padding: 12px 18px;
+  }
+}
+
+.el-drawer {
+  max-width: 94vw !important;
+  background: rgba(10, 18, 32, 0.97) !important;
+  border-left: 1px solid rgba(0, 210, 255, 0.35) !important;
+  color: #f0f6fc;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+
+  .el-drawer__header {
+    flex-shrink: 0;
+    margin-bottom: 0;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(0, 210, 255, 0.25);
+    color: #00d2ff;
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .el-drawer__body {
+    flex: 1 1 auto;
+    overflow-y: auto !important;
+    max-height: calc(100vh - 65px) !important;
+    padding: 16px 20px;
+    font-size: 13px;
+  }
+}
+
+.el-table {
+  --el-table-bg-color: transparent !important;
+  --el-table-tr-bg-color: transparent !important;
+  --el-table-header-bg-color: rgba(0, 210, 255, 0.12) !important;
+  --el-table-row-hover-bg-color: rgba(0, 210, 255, 0.22) !important;
+  --el-table-border-color: rgba(0, 210, 255, 0.22) !important;
+  --el-table-border: 1px solid rgba(0, 210, 255, 0.22) !important;
+  --el-table-text-color: #f0f6fc !important;
+  --el-table-header-text-color: #00d2ff !important;
+  --el-table-current-row-bg-color: rgba(0, 210, 255, 0.25) !important;
+  background: transparent !important;
+  color: #f0f6fc !important;
+  font-size: 13px;
+
+  tr {
+    background: transparent !important;
+  }
+
+  &.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+    background: rgba(14, 25, 43, 0.75) !important;
+  }
+
+  .el-table__body tr:hover > td.el-table__cell {
+    background: rgba(0, 210, 255, 0.22) !important;
+  }
+
+  th.el-table__cell {
+    background: rgba(0, 210, 255, 0.12) !important;
+    color: #00d2ff !important;
+    font-weight: 700;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(0, 210, 255, 0.3) !important;
+  }
+
+  td.el-table__cell {
+    background: transparent;
+    border-bottom: 1px solid rgba(0, 210, 255, 0.15) !important;
+    color: #d8e6f8 !important;
+    padding: 10px 0;
+  }
+
+  .el-table__inner-wrapper::before {
+    background-color: rgba(0, 210, 255, 0.25) !important;
+  }
+}
+
+.el-tabs {
+  &--card > .el-tabs__header {
+    border-bottom: 1px solid rgba(0, 210, 255, 0.25);
+
+    .el-tabs__nav {
+      border: none;
+    }
+
+    .el-tabs__item {
+      border: 1px solid rgba(0, 210, 255, 0.22);
+      border-bottom: none;
+      background: rgba(14, 24, 42, 0.7);
+      color: #a2b7d4;
+      font-size: 13px;
+      font-weight: 500;
+      margin-right: 4px;
+      border-radius: 4px 4px 0 0;
+      padding: 0 16px;
+
+      &.is-active {
+        background: rgba(0, 210, 255, 0.18);
+        color: #00d2ff;
+        font-weight: 600;
+        border-color: rgba(0, 210, 255, 0.55);
+        border-bottom: 2px solid #00d2ff;
+      }
+    }
+  }
+
+  .el-tabs__item {
+    color: #a2b7d4;
+    font-size: 13px;
+    &.is-active {
+      color: #00d2ff;
+    }
+  }
+
+  .el-tabs__active-bar {
+    background-color: #00d2ff;
+  }
+}
+
+.el-input__wrapper, .el-textarea__inner {
+  background: rgba(10, 18, 32, 0.85) !important;
+  box-shadow: 0 0 0 1px rgba(0, 210, 255, 0.35) inset !important;
+  color: #f0f6fc !important;
+  font-size: 13px !important;
+
+  &:hover, &.is-focus {
+    box-shadow: 0 0 0 1px #00d2ff inset, 0 0 10px rgba(0, 210, 255, 0.35) !important;
+  }
+}
+
+.el-select-dropdown__item {
+  color: #c8daf0;
+  font-size: 13px;
+  &.hover, &:hover {
+    background: rgba(0, 210, 255, 0.18);
+    color: #00d2ff;
+  }
+  &.selected {
+    color: #00d2ff;
+    font-weight: 600;
+  }
+}
+
+.el-select-dropdown {
+  background: rgba(12, 21, 36, 0.98) !important;
+  border: 1px solid rgba(0, 210, 255, 0.35) !important;
+}
+
+.el-tag {
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.el-slider {
+  --el-slider-main-bg-color: #00d2ff;
+  --el-slider-runway-bg-color: rgba(0, 210, 255, 0.25);
+}
+
+.el-form-item__label {
+  color: #a2b7d4 !important;
+  font-size: 13px !important;
+}
