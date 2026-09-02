@@ -62,8 +62,9 @@
       <!-- 推演结果与真实态势对比 -->
       <div v-if="!simulationStore.isRunning && simulationStore.progressPercent === 100" class="sim-result-box">
         <el-alert
-          title="推演计算完成：突防推演航线已注入当前三维视窗，已标记为【推演工作内容】"
+          :title="`推演计算完成：已按输入参数 (突防高度 ${simulationStore.lastRunParams.targetAltitudeM ?? '-'} 米 / 马赫 ${simulationStore.lastRunParams.machSpeed ?? '-'}${simulationStore.lastRunParams.jammingEnabled ? ' / 伴随电磁压制' : ''}) 生成假设航线`"
           type="success"
+          description="假设航线已注入当前三维视窗，标记为【推演工作内容】；详细参数对比见分析工作台「真实态势 vs 推演比对」。"
           show-icon
           :closable="false"
         />
@@ -89,26 +90,45 @@
 import { ref, computed } from 'vue'
 import { useSimulationStore } from '@/stores/simulationStore'
 import { useSituationStore } from '@/stores/situationStore'
-import { useSceneStore } from '@/stores/sceneStore'
+import { cesiumController } from '@/utils/cesiumHelper'
+import { ElMessage } from 'element-plus'
 import { Loading, VideoPlay } from '@element-plus/icons-vue'
 
 const visible = ref(false)
 const simulationStore = useSimulationStore()
 const situationStore = useSituationStore()
-const sceneStore = useSceneStore()
-
-async function onRun() {
-  await simulationStore.runSimulation()
-  await situationStore.loadSnapshot()
-  await sceneStore.loadFromApi()
-}
 
 const currentAlg = computed(() =>
   simulationStore.algorithmPacks.find((a) => a.id === simulationStore.selectedAlgorithmId)
 )
 
+async function onRun() {
+  // 收集表单实际填写的参数参与推演计算
+  const params: Record<string, unknown> = {}
+  currentAlg.value?.inputParams.forEach((p) => {
+    params[p.key] = p.defaultVal
+  })
+  await simulationStore.runSimulation(params)
+
+  if (simulationStore.progressPercent === 100) {
+    // 将推演假设航线上图 (按本次参数生成，替换旧假设)
+    situationStore.removeSimulationHypothesis('SIM-HYPO-001')
+    situationStore.injectSimulationHypothesis('SIM-HYPO-001', {
+      targetAltitudeM: Number(params.targetAltitudeM ?? 300),
+      machSpeed: Number(params.machSpeed ?? 1.4)
+    })
+    const hypo = situationStore.targets.find((t) => t.id === 'SIM-HYPO-001')
+    if (hypo) {
+      cesiumController.flyToTargets([hypo])
+    }
+    ElMessage.success('推演假设航线已按当前参数上图！')
+  }
+}
+
 defineExpose({
   open: () => {
+    // 重置上次运行状态，避免一打开就显示"已完成"
+    simulationStore.resetRunState()
     visible.value = true
   }
 })

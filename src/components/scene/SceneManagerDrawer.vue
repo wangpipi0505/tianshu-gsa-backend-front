@@ -54,15 +54,29 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
+import { useSituationStore } from '@/stores/situationStore'
+import { cesiumController } from '@/utils/cesiumHelper'
+import type { SituationalScene } from '@/types/scene'
 import { ElMessage } from 'element-plus'
 
 const visible = ref(false)
 const sceneStore = useSceneStore()
+const situationStore = useSituationStore()
 
-function applyScene(s: any) {
+/** 真实载入：切换激活场景 + 应用相机视角 + 聚焦场景重点目标 */
+function applyScene(s: SituationalScene) {
   sceneStore.activeScene = { ...s }
+
+  const [lon, lat, alt] = s.cameraView.destination
+  cesiumController.flyToLocation(lon, lat, alt, s.cameraView.orientation.heading, s.cameraView.orientation.pitch)
+
+  if (s.focusedTargetIds?.length) {
+    situationStore.focusedTargetIds = [...s.focusedTargetIds]
+    situationStore.selectedTargetId = s.focusedTargetIds[0]
+  }
+
   visible.value = false
-  ElMessage.success(`已载入态势场景: ${s.name}`)
+  ElMessage.success(`已载入态势场景「${s.name}」，相机视角与重点目标已同步应用`)
 }
 
 defineExpose({
