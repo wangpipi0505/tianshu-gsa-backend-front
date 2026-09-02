@@ -45,15 +45,15 @@
             </div>
             <div class="param-item">
               <span class="k">中心经纬度:</span>
-              <span class="v">东经 123.10°, 北纬 24.90°</span>
+              <span class="v">东经 {{ form.centerLon }}°, 北纬 {{ form.centerLat }}°</span>
             </div>
             <div class="param-item">
               <span class="k">警戒半径与高程:</span>
-              <span class="v">半径 35 公里 / 0 ~ 12,000 米</span>
+              <span class="v">半径 {{ form.radiusKm }} 公里 / 0 ~ 12,000 米</span>
             </div>
             <div class="param-item">
               <span class="k">异常持续时长:</span>
-              <span class="v text-amber font-mono">18 分钟 (识别出超视距照射意图)</span>
+              <span class="v text-amber font-mono">{{ form.durationMinutes ? `${form.durationMinutes} 分钟` : '暂无徘徊检测结果' }}</span>
             </div>
           </div>
         </div>
@@ -93,27 +93,52 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { useAnalysisStore } from '@/stores/analysisStore'
+import { useSceneStore } from '@/stores/sceneStore'
+import { ElMessage } from 'element-plus'
 import { InfoFilled, Warning, Check } from '@element-plus/icons-vue'
 
 const emit = defineEmits(['publish'])
 const visible = ref(false)
+const analysisStore = useAnalysisStore()
+const sceneStore = useSceneStore()
 
 const form = reactive({
-  name: '海峡重点突防战机 (VIPER-01) 异常徘徊空域与机动特征研判专题',
-  theme: '重点空中突防目标高维特征与异常空域行为分析',
-  targetName: '【敌方重点突防战机】VIPER-01',
-  conclusion: '经轨迹剖面与高维特征比对，该机型具备倾斜双垂尾与吸波涂层，在徘徊空域内疑似进行雷达照射与战术压制，建议将该徘徊区升级为重点战术警戒空域。',
-  sceneName: '海峡空情与中东远海重点态势场景 (v2.1)'
+  name: '',
+  theme: '',
+  targetName: '',
+  conclusion: '',
+  sceneName: '',
+  centerLon: 0,
+  centerLat: 0,
+  radiusKm: 0,
+  durationMinutes: 0
 })
 
 function open(customData?: Partial<typeof form>) {
-  if (customData) {
-    Object.assign(form, customData)
+  // 默认值从分析结果实时注入 (轨迹剖面输出的徘徊区/目标)，而非写死剧本
+  const traj = analysisStore.trajectoryResult
+  const zone = traj.loiteringZones?.[0]
+  const base: Partial<typeof form> = {
+    name: traj.targetName ? `${traj.targetName} 异常徘徊空域与机动特征研判专题` : '',
+    theme: analysisStore.currentModel.name,
+    targetName: traj.targetName || '未指定目标',
+    conclusion: '经轨迹剖面与关联分析，该区域机动特征异常，建议纳入重点战术警戒空域并持续跟踪。',
+    sceneName: sceneStore.activeScene.name,
+    centerLon: zone?.center[0] ?? 0,
+    centerLat: zone?.center[1] ?? 0,
+    radiusKm: zone?.radiusKm ?? 0,
+    durationMinutes: zone?.durationMinutes ?? 0
   }
+  Object.assign(form, base, customData || {})
   visible.value = true
 }
 
 function onConfirm() {
+  if (!form.name.trim() || !form.conclusion.trim()) {
+    ElMessage.warning('请填写专题成果名称与综合研判结论后再发布')
+    return
+  }
   emit('publish', { ...form })
   visible.value = false
 }

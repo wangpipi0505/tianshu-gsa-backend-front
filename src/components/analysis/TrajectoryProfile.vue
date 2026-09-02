@@ -11,12 +11,13 @@
 
       <!-- 关键转折点与徘徊区数据 -->
       <div class="turning-points-box">
-        <div class="section-title">识别出的机动关键拐点与异常徘徊空域</div>
+        <div class="section-title">机动关键拐点与异常徘徊空域 (点击定位)</div>
         <div class="turning-list">
           <div
             v-for="(tp, idx) in analysisStore.trajectoryResult.turningPoints"
             :key="idx"
             class="tp-item"
+            @click="locateCoordinate(tp.location[0], tp.location[1], '机动拐点')"
           >
             <span class="time">{{ tp.time }}</span>
             <span class="loc">东经 {{ tp.location[0] }}°, 北纬 {{ tp.location[1] }}°</span>
@@ -28,6 +29,7 @@
           v-for="(lz, idx) in analysisStore.trajectoryResult.loiteringZones"
           :key="idx"
           class="loiter-item"
+          @click="locateCoordinate(lz.center[0], lz.center[1], '异常徘徊空域')"
         >
           <span class="k">异常徘徊空域:</span>
           <span class="v">圆心(东经{{ lz.center[0] }}°, 北纬{{ lz.center[1] }}°), 半径 {{ lz.radiusKm }} 公里, 滞留持续 {{ lz.durationMinutes }} 分钟</span>
@@ -38,25 +40,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { cesiumController } from '@/utils/cesiumHelper'
+import { ElMessage } from 'element-plus'
 
+const router = useRouter()
 const analysisStore = useAnalysisStore()
 const profileChartRef = ref<HTMLDivElement | null>(null)
 let profileChart: echarts.ECharts | null = null
 
-function initChart() {
-  if (!profileChartRef.value) return
-  profileChart = echarts.init(profileChartRef.value)
-
+function chartOption(): echarts.EChartsOption {
   const times = analysisStore.trajectoryResult.speedProfile.map((s) => s.time)
   const speeds = analysisStore.trajectoryResult.speedProfile.map((s) => s.speed)
   const alts = analysisStore.trajectoryResult.altitudeProfile.map((a) => a.altitude)
-
-  profileChart.setOption({
+  return {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis' },
+    toolbox: {
+      right: 8,
+      feature: { saveAsImage: { title: '保存图片', name: '轨迹剖面' } },
+      iconStyle: { borderColor: '#6e87ab' }
+    },
     legend: { data: ['飞行速度 (节)', '飞行高度 (米)'], textStyle: { color: '#bad3f2', fontSize: 12 } },
     grid: { left: '8%', right: '8%', top: '18%', bottom: '15%' },
     xAxis: {
@@ -100,8 +107,27 @@ function initChart() {
         itemStyle: { color: '#faad14' }
       }
     ]
-  })
+  }
 }
+
+function renderChart() {
+  profileChart?.setOption(chartOption(), true)
+}
+
+function initChart() {
+  if (!profileChartRef.value) return
+  profileChart = echarts.init(profileChartRef.value)
+  profileChart.setOption(chartOption())
+}
+
+/** 拐点/徘徊区一键定位：跳转三维地球并飞至该坐标 */
+function locateCoordinate(lon: number, lat: number, label: string) {
+  router.push('/workbench')
+  setTimeout(() => cesiumController.flyToCoordinates([[lon, lat]], 550000), 200)
+  ElMessage.success(`已定位${label}所在空域`)
+}
+
+watch(() => analysisStore.trajectoryResult, renderChart, { deep: true })
 
 function handleResize() {
   profileChart?.resize()

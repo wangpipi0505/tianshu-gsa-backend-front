@@ -11,13 +11,20 @@
 
       <!-- 威胁与防空杀伤圈清单 -->
       <div class="threat-zones-list">
-        <div class="section-title">防空与武器威胁覆盖圈</div>
-        <div v-for="(tz, idx) in analysisStore.associationResult.threatZones" :key="idx" class="tz-card">
+        <div class="section-title">防空与武器威胁覆盖圈 (点击定位)</div>
+        <div
+          v-for="(tz, idx) in analysisStore.associationResult.threatZones"
+          :key="idx"
+          class="tz-card"
+          @click="locateThreatZone(tz)"
+        >
           <div class="tz-name text-red">{{ tz.name }}</div>
           <div class="tz-props">
             <span>中心坐标: (东经{{ tz.center[0] }}°, 北纬{{ tz.center[1] }}°)</span>
-            <span>杀伤半径: {{ tz.radiusKm }} 公里</span>
-            <el-tag size="small" type="danger">高度威胁区</el-tag>
+            <span>覆盖半径: {{ tz.radiusKm }} 公里</span>
+            <el-tag size="small" :type="tz.threatLevel === 'high' ? 'danger' : 'warning'">
+              {{ tz.threatLevel === 'high' ? '高度威胁区' : '防御覆盖区' }}
+            </el-tag>
           </div>
         </div>
       </div>
@@ -26,21 +33,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { useSituationStore } from '@/stores/situationStore'
+import { useSceneStore } from '@/stores/sceneStore'
+import { cesiumController } from '@/utils/cesiumHelper'
+import { ElMessage } from 'element-plus'
 
+const router = useRouter()
 const analysisStore = useAnalysisStore()
+const situationStore = useSituationStore()
+const sceneStore = useSceneStore()
 const graphRef = ref<HTMLDivElement | null>(null)
 let graphChart: echarts.ECharts | null = null
 
-function initGraph() {
-  if (!graphRef.value) return
-  graphChart = echarts.init(graphRef.value)
-
-  graphChart.setOption({
+function graphOption(): echarts.EChartsOption {
+  const result = analysisStore.associationResult
+  return {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'item' },
+    toolbox: {
+      right: 8,
+      feature: { saveAsImage: { title: '保存图片', name: '关联图谱' } },
+      iconStyle: { borderColor: '#6e87ab' }
+    },
     series: [
       {
         type: 'graph',
@@ -59,23 +77,57 @@ function initGraph() {
           color: '#bad3f2',
           formatter: (params: any) => params.data.relation
         },
-        data: [
-          { id: 'Target-001', name: '敌重点战机', symbolSize: 45, itemStyle: { color: '#ff4d4f', borderColor: '#ffffff', borderWidth: 1 } },
-          { id: 'Target-002', name: '敌预警指挥机', symbolSize: 45, itemStyle: { color: '#ff4d4f', borderColor: '#ffffff', borderWidth: 1 } },
-          { id: 'Target-003', name: '我驱逐舰173舰', symbolSize: 48, itemStyle: { color: '#00d2ff', borderColor: '#ffffff', borderWidth: 1 } },
-          { id: 'Target-004', name: '我空警预警机', symbolSize: 45, itemStyle: { color: '#00d2ff', borderColor: '#ffffff', borderWidth: 1 } },
-          { id: 'Target-005', name: '我地空导弹营', symbolSize: 40, itemStyle: { color: '#52c41a', borderColor: '#ffffff', borderWidth: 1 } }
-        ],
-        links: [
-          { source: 'Target-002', target: 'Target-001', relation: '战术预警指挥', lineStyle: { color: '#00d2ff', width: 2 } },
-          { source: 'Target-004', target: 'Target-003', relation: '海空联合协同', lineStyle: { color: '#00d2ff', width: 2 } },
-          { source: 'Target-001', target: 'Target-003', relation: '超视距威胁对峙', lineStyle: { color: '#ff4d4f', width: 2, type: 'dashed' } },
-          { source: 'Target-005', target: 'Target-003', relation: '岸海防空交织网', lineStyle: { color: '#52c41a', width: 2 } }
-        ]
+        data: result.nodes.map((n) => ({
+          id: n.id,
+          name: n.name,
+          symbolSize: n.symbolSize,
+          itemStyle: { color: n.color, borderColor: '#ffffff', borderWidth: 1 }
+        })),
+        links: result.links.map((l) => ({
+          source: l.source,
+          target: l.target,
+          relation: l.relation,
+          lineStyle:
+            l.strength === 'strong'
+              ? { color: '#00d2ff', width: 3 }
+              : { color: '#6e87ab', width: 1.5, type: 'dashed' as const }
+        }))
       }
     ]
+  }
+}
+
+function renderGraph() {
+  graphChart?.setOption(graphOption(), true)
+}
+
+function initGraph() {
+  if (!graphRef.value) return
+  graphChart = echarts.init(graphRef.value)
+  graphChart.setOption(graphOption())
+
+  // 下钻：点击节点 → 跳转三维工作台并聚焦该目标
+  graphChart.on('click', (params) => {
+    if (params.dataType !== 'node') return
+    const targetId = String((params.data as { id?: string })?.id || '')
+    const target = situationStore.targets.find((t) => t.id === targetId)
+    if (!target) return
+    sceneStore.showTargetAndFeatures(target.id)
+    situationStore.selectedTargetId = target.id
+    router.push('/workbench')
+    setTimeout(() => cesiumController.focusTarget(target, 650000), 200)
+    ElMessage.success(`已下钻聚焦【${target.codeName}】(${target.callsign})`)
   })
 }
+
+/** 威胁/覆盖圈一键定位：跳转三维地球并飞至该圈中心 */
+function locateThreatZone(tz: { center: [number, number]; name: string }) {
+  router.push('/workbench')
+  setTimeout(() => cesiumController.flyToCoordinates([tz.center], 900000), 200)
+  ElMessage.success(`已定位【${tz.name}】中心空域`)
+}
+
+watch(() => analysisStore.associationResult, renderGraph, { deep: true })
 
 function handleResize() {
   graphChart?.resize()

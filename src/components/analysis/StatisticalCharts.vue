@@ -48,12 +48,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { useSituationStore } from '@/stores/situationStore'
+import { useSceneStore } from '@/stores/sceneStore'
+import { cesiumController } from '@/utils/cesiumHelper'
 import { ElMessage } from 'element-plus'
 
+const router = useRouter()
 const analysisStore = useAnalysisStore()
+const situationStore = useSituationStore()
+const sceneStore = useSceneStore()
 
 const pieChartRef = ref<HTMLDivElement | null>(null)
 const lineChartRef = ref<HTMLDivElement | null>(null)
@@ -63,101 +70,152 @@ let pieChart: echarts.ECharts | null = null
 let lineChart: echarts.ECharts | null = null
 let gaugeChart: echarts.ECharts | null = null
 
+const TOOLBOX = {
+  right: 8,
+  top: 0,
+  feature: { saveAsImage: { title: '保存图片', name: '态势统计图' } },
+  iconStyle: { borderColor: '#6e87ab' }
+}
+
+function pieOption(): echarts.EChartsOption {
+  const breakdown = analysisStore.statisticalResult.categoryBreakdown
+  return {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    legend: { bottom: '5%', textStyle: { color: '#bad3f2', fontSize: 12 } },
+    toolbox: TOOLBOX,
+    series: [
+      {
+        name: '目标类型',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        center: ['50%', '45%'],
+        avoidLabelOverlap: false,
+        itemStyle: { borderRadius: 4, borderColor: '#0b111e', borderWidth: 2 },
+        label: { show: false },
+        data: breakdown.map((c) => ({ value: c.count, name: c.name, itemStyle: { color: c.color } }))
+      }
+    ]
+  }
+}
+
+function lineOption(): echarts.EChartsOption {
+  const density = analysisStore.statisticalResult.timeSeriesDensity
+  return {
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis' },
+    toolbox: TOOLBOX,
+    grid: { left: '8%', right: '6%', top: '15%', bottom: '15%' },
+    xAxis: {
+      type: 'category',
+      data: density.map((t) => t.timestamp),
+      axisLine: { lineStyle: { color: 'rgba(0, 210, 255, 0.35)' } },
+      axisLabel: { color: '#bad3f2', fontSize: 11 }
+    },
+    yAxis: {
+      type: 'value',
+      splitLine: { lineStyle: { color: 'rgba(0, 210, 255, 0.15)' } },
+      axisLabel: { color: '#bad3f2', fontSize: 11 }
+    },
+    series: [
+      {
+        data: density.map((t) => t.count),
+        type: 'line',
+        smooth: true,
+        lineStyle: { color: '#00d2ff', width: 2.5 },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(0, 210, 255, 0.45)' },
+            { offset: 1, color: 'rgba(0, 210, 255, 0.02)' }
+          ])
+        }
+      }
+    ]
+  }
+}
+
+function gaugeOption(): echarts.EChartsOption {
+  return {
+    backgroundColor: 'transparent',
+    toolbox: TOOLBOX,
+    series: [
+      {
+        type: 'gauge',
+        center: ['50%', '55%'],
+        radius: '85%',
+        min: 0,
+        max: 100,
+        progress: { show: true, width: 8, itemStyle: { color: '#faad14' } },
+        pointer: { show: true, length: '60%', width: 3 },
+        axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(0, 210, 255, 0.18)']] } },
+        axisTick: { show: false },
+        splitLine: { length: 6, lineStyle: { width: 1.5, color: '#6e87ab' } },
+        axisLabel: { distance: 14, color: '#bad3f2', fontSize: 10 },
+        detail: {
+          valueAnimation: true,
+          formatter: '{value}%',
+          color: '#faad14',
+          fontSize: 18,
+          fontWeight: 'bold',
+          offsetCenter: [0, '70%']
+        },
+        data: [{ value: analysisStore.statisticalResult.conflictRate, name: '冲突保留率' }]
+      }
+    ]
+  }
+}
+
+function renderCharts() {
+  pieChart?.setOption(pieOption(), true)
+  lineChart?.setOption(lineOption(), true)
+  gaugeChart?.setOption(gaugeOption(), true)
+}
+
 function initCharts() {
   if (pieChartRef.value) {
     pieChart = echarts.init(pieChartRef.value)
-    pieChart.setOption({
-      backgroundColor: 'transparent',
-      tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-      legend: { bottom: '5%', textStyle: { color: '#bad3f2', fontSize: 12 } },
-      series: [
-        {
-          name: '目标类型',
-          type: 'pie',
-          radius: ['40%', '70%'],
-          center: ['50%', '45%'],
-          avoidLabelOverlap: false,
-          itemStyle: { borderRadius: 4, borderColor: '#0b111e', borderWidth: 2 },
-          label: { show: false },
-          data: [
-            { value: 3, name: '空中目标', itemStyle: { color: '#ff4d4f' } },
-            { value: 2, name: '水面舰艇', itemStyle: { color: '#00d2ff' } },
-            { value: 1, name: '地面设施', itemStyle: { color: '#52c41a' } }
-          ]
-        }
-      ]
+    pieChart.setOption(pieOption())
+    // 下钻：点击类型扇区 → 跳转三维工作台并聚焦该类型首个目标
+    pieChart.on('click', (params) => {
+      const name = String(params.name || '')
+      const typeSet: Record<string, string[]> = {
+        空中目标: ['aircraft', 'air'],
+        水面舰艇: ['warship', 'maritime'],
+        地面设施: ['ground_facility', 'ground', 'facility']
+      }
+      const types = typeSet[name]
+      const target = types
+        ? situationStore.targets.find((t) => types.includes(t.type))
+        : undefined
+      if (!target) {
+        ElMessage.info(`暂无可下钻的「${name}」目标`)
+        return
+      }
+      sceneStore.showTargetAndFeatures(target.id)
+      situationStore.selectedTargetId = target.id
+      router.push('/workbench')
+      setTimeout(() => cesiumController.focusTarget(target, 650000), 200)
+      ElMessage.success(`已下钻聚焦【${target.codeName}】(${target.callsign})`)
     })
   }
 
   if (lineChartRef.value) {
     lineChart = echarts.init(lineChartRef.value)
-    lineChart.setOption({
-      backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis' },
-      grid: { left: '8%', right: '6%', top: '15%', bottom: '15%' },
-      xAxis: {
-        type: 'category',
-        data: analysisStore.statisticalResult.timeSeriesDensity.map((t) => t.timestamp),
-        axisLine: { lineStyle: { color: 'rgba(0, 210, 255, 0.35)' } },
-        axisLabel: { color: '#bad3f2', fontSize: 11 }
-      },
-      yAxis: {
-        type: 'value',
-        splitLine: { lineStyle: { color: 'rgba(0, 210, 255, 0.15)' } },
-        axisLabel: { color: '#bad3f2', fontSize: 11 }
-      },
-      series: [
-        {
-          data: analysisStore.statisticalResult.timeSeriesDensity.map((t) => t.count),
-          type: 'line',
-          smooth: true,
-          lineStyle: { color: '#00d2ff', width: 2.5 },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(0, 210, 255, 0.45)' },
-              { offset: 1, color: 'rgba(0, 210, 255, 0.02)' }
-            ])
-          }
-        }
-      ]
-    })
+    lineChart.setOption(lineOption())
   }
 
   if (gaugeChartRef.value) {
     gaugeChart = echarts.init(gaugeChartRef.value)
-    gaugeChart.setOption({
-      backgroundColor: 'transparent',
-      series: [
-        {
-          type: 'gauge',
-          center: ['50%', '55%'],
-          radius: '85%',
-          min: 0,
-          max: 100,
-          progress: { show: true, width: 8, itemStyle: { color: '#faad14' } },
-          pointer: { show: true, length: '60%', width: 3 },
-          axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(0, 210, 255, 0.18)']] } },
-          axisTick: { show: false },
-          splitLine: { length: 6, lineStyle: { width: 1.5, color: '#6e87ab' } },
-          axisLabel: { distance: 14, color: '#bad3f2', fontSize: 10 },
-          detail: {
-            valueAnimation: true,
-            formatter: '{value}%',
-            color: '#faad14',
-            fontSize: 18,
-            fontWeight: 'bold',
-            offsetCenter: [0, '70%']
-          },
-          data: [{ value: analysisStore.statisticalResult.conflictRate, name: '冲突保留率' }]
-        }
-      ]
-    })
+    gaugeChart.setOption(gaugeOption())
   }
 }
 
+// 口径切换/数据重算后图表实时重绘
+watch(() => analysisStore.statisticalResult, renderCharts, { deep: true })
+
 function onScopeChange(val: any) {
   analysisStore.setSourceScope(val)
-  ElMessage.success(`分析口径已切换`)
+  ElMessage.success('分析口径已切换，统计结果已按新口径重算')
 }
 
 function handleResize() {

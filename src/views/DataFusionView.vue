@@ -6,6 +6,9 @@
         <p>基准统一 ➔ 语义与关系映射 ➔ 候选关联人工确认 ➔ 态势资产发布 ➔ 数据产品包装</p>
       </div>
       <div class="header-stats">
+        <el-button size="small" plain @click="router.push('/analytics')">
+          前往多维统计研判 ➔
+        </el-button>
         <div class="stat-card">
           <span class="num">{{ fusionStore.datasets.length }}</span>
           <span class="txt">已接入数据集</span>
@@ -34,8 +37,8 @@
         </div>
 
         <div class="workflow-steps-box">
-          <el-steps :active="5" finish-status="success" align-center size="small">
-            <el-step title="1. 数据集选配" description="3 个数据集产物" />
+          <el-steps :active="fusionStore.fusionJobs[0]?.currentStep ?? 5" finish-status="success" align-center size="small">
+            <el-step title="1. 数据集选配" :description="`${fusionStore.datasets.length} 个数据集产物`" />
             <el-step title="2. 基准统一" description="空间与时间对齐" />
             <el-step title="3. 语义映射" description="本体实体对齐" />
             <el-step title="4. 候选关联确认" description="人工研判确认" />
@@ -78,13 +81,13 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { useFusionStore } from '@/stores/fusionStore'
-import { useSituationStore } from '@/stores/situationStore'
 import DatasetRegistry from '@/components/fusion/DatasetRegistry.vue'
 import { ElMessage } from 'element-plus'
 
+const router = useRouter()
 const fusionStore = useFusionStore()
-const situationStore = useSituationStore()
 
 async function onPublish() {
   const jobId = fusionStore.fusionJobs[0]?.id
@@ -92,9 +95,8 @@ async function onPublish() {
     ElMessage.warning('没有可发布的融合工作')
     return
   }
-  await fusionStore.publishJob(jobId)
-  await situationStore.loadSnapshot()
-  ElMessage.success('已发布新的资产版本，工作台快照已从库刷新')
+  const result = await fusionStore.publishJob(jobId)
+  ElMessage.success(`已发布资产版本 ${result.assetVersion.versionId}，数据产品 ${result.productVersion.releaseVersion}（含 ${result.assetVersion.assetCount.targets} 个作战实体快照）`)
 }
 </script>
 

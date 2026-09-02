@@ -14,6 +14,10 @@
           <el-icon><DocumentAdd /></el-icon>
           <span>沉淀为专题研判成果</span>
         </el-button>
+        <el-button size="small" plain @click="restoreAllLayers">
+          <el-icon><RefreshRight /></el-icon>
+          <span>恢复全域图层</span>
+        </el-button>
       </div>
     </div>
 
@@ -51,7 +55,7 @@ import { useAnalysisStore } from '@/stores/analysisStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import type { SituationRegion } from '@/types/situation'
 import { ElMessage } from 'element-plus'
-import { DocumentAdd, Aim } from '@element-plus/icons-vue'
+import { DocumentAdd, Aim, RefreshRight } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const situationStore = useSituationStore()
@@ -61,10 +65,13 @@ const analysisStore = useAnalysisStore()
 const publishModalRef = ref<InstanceType<typeof ThematicAssetPublishModal> | null>(null)
 
 function goToWorkbenchWithFocus() {
-  const targetName = analysisStore.trajectoryResult.targetName
-  const target = situationStore.targets.find(
-    (t) => t.codeName.includes(targetName) || targetName.includes(t.codeName) || t.callsign.includes(targetName)
-  ) || situationStore.targets[0]
+  const trajectory = analysisStore.trajectoryResult
+  // 优先按稳定主键 targetId 直查，名称匹配仅作兜底 (避免中文名互不包含时静默聚焦错目标)
+  const target = situationStore.targets.find((t) => t.id === trajectory.targetId)
+    || situationStore.targets.find(
+      (t) => t.codeName.includes(trajectory.targetName) || trajectory.targetName.includes(t.codeName) || t.callsign.includes(trajectory.targetName)
+    )
+    || situationStore.targets[0]
 
   if (target) {
     sceneStore.showTargetAndFeatures(target.id)
@@ -87,22 +94,25 @@ function openPublishModal() {
 
 /**
  * 确认发布并同步上图：
- * 1. 先清空当前地图上的无关态势要素；
- * 2. 将提炼出的 3D 异常徘徊空域与研判结论动态挂载至图层树与态势存储；
+ * 1. 以分析输出的徘徊区中心/半径构造 3D 警戒包络 (非写死坐标)；
+ * 2. 注入态势数据存储与图层树专题合集，并写入分析成果留痕；
  * 3. 仅聚焦显示该新增研判专题与关联核心目标；
  * 4. 平滑跳转三维地球并居中特写该研判空域。
  */
 function onPublishThematicAsset(form: any) {
-  const regionId = 'REG-LOITER-01'
+  const regionId = `REG-LOITER-${Date.now()}`
+  const targetId = analysisStore.trajectoryResult.targetId || 'Target-001'
 
-  // 1. 构造 3D 异常徘徊警戒区多边形 (以东经123.10°, 北纬24.90° 为中心，半径 35km 的八边形包络)
-  const centerLon = 123.10
-  const centerLat = 24.90
-  const rDeg = 0.32 // 约 35 公里地面距离
+  // 从分析结果带入的中心/半径构造多边形 (度数近似：1° ≈ 111km)
+  const centerLon = Number(form.centerLon) || 123.1
+  const centerLat = Number(form.centerLat) || 24.9
+  const rDeg = form.radiusKm ? Math.round((form.radiusKm / 111) * 1000) / 1000 : 0.32
 
   const loiteringRegion: SituationRegion = {
     id: regionId,
     name: `【异常徘徊警戒区】${form.targetName} 机动特征研判空域`,
+    category: 'restricted',
+    description: form.conclusion,
     color: '#ff4d4f',
     opacity: 0.55,
     minAltitude: 0,
@@ -120,30 +130,34 @@ function onPublishThematicAsset(form: any) {
     thematicAttributes: {
       threatLevel: 'high',
       riskLevel: 'high',
-      coverageRadiusKm: 35,
+      coverageRadiusKm: form.radiusKm,
       analystNotes: form.conclusion
     }
   }
 
-  // 2. 注入态势数据存储
+  // 1. 注入态势数据存储
   situationStore.addThematicRegion(loiteringRegion)
 
-  // 3. 动态挂载至图层树【态势研判专题合集】
+  // 2. 动态挂载至图层树【态势研判专题合集】
   sceneStore.addThematicAsset({
-    id: 'VIPER-LOITER-2026',
+    id: `LOITER-${Date.now()}`,
     name: form.name,
     regionId: regionId,
     theme: form.theme,
     targetName: form.targetName,
+    targetId: targetId,
     conclusion: form.conclusion
   })
 
-  // 4. 【核心规范】：先清空当前地图上的无关要素，严格只点亮该研判专题与对应作战实体
-  sceneStore.hideAllSituationLayers()
-  sceneStore.showOnlyTargetsAndFeatures(['Target-001'], [regionId])
+  // 3. 写入分析成果留痕 (沉淀历史可在成果列表回溯)
+  void analysisStore.publishCurrentThematic(form.name, form.conclusion)
 
-  situationStore.openedPopupTargetIds = ['Target-001']
-  situationStore.selectedTargetId = 'Target-001'
+  // 4. 清空无关要素，仅点亮该研判专题与对应作战实体
+  sceneStore.hideAllSituationLayers()
+  sceneStore.showOnlyTargetsAndFeatures([targetId], [regionId])
+
+  situationStore.openedPopupTargetIds = [targetId]
+  situationStore.selectedTargetId = targetId
 
   // 5. 跳转回三维地球主工作台，相机精准飞往该研判空域
   router.push('/')
@@ -153,6 +167,12 @@ function onPublishThematicAsset(form: any) {
   }, 100)
 
   ElMessage.success(`【${form.name}】已成功沉淀并发布至图层树！已清空其他无关要素，三维地球已高亮呈现该研判成果！`)
+}
+
+/** 一键恢复全域图层 (发布清场后的快捷回退) */
+function restoreAllLayers() {
+  sceneStore.showAllSituationLayers()
+  ElMessage.success('已恢复全域态势图层')
 }
 </script>
 
