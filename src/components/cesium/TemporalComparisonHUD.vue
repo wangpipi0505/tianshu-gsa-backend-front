@@ -34,6 +34,18 @@
         </div>
       </div>
 
+      <!-- 用法引导（可关闭） -->
+      <div v-if="guideVisible" class="hud-guide-bar">
+        <el-icon><InfoFilled /></el-icon>
+        <span>
+          三态 = 同一目标在<b>历史 / 当前 / 未来</b>三个时间切面的快照同屏对比：
+          ① 用下方「切面图层」开关分别显示/隐藏三个切面；
+          ② 点击切片卡或地球上的彩色切片点，相机会斜视飞达并展开详情；
+          ③ 拖动底部时间轴，所处时相的切片自动点亮，即可看到目标如何"走到未来"。
+        </span>
+        <el-button link size="small" class="guide-close" @click="guideVisible = false">知道了</el-button>
+      </div>
+
       <!-- 三态图层独立显隐开关 (历史/现在/未来三个时间切面) -->
       <div class="layer-switch-bar">
         <span class="bar-label">切面图层:</span>
@@ -159,11 +171,13 @@
 import { computed } from 'vue'
 import { useSituationStore } from '@/stores/situationStore'
 import { cesiumController } from '@/utils/cesiumHelper'
+import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Close, VideoPlay } from '@element-plus/icons-vue'
+import { Close, VideoPlay, InfoFilled } from '@element-plus/icons-vue'
 import type { TemporalPhase, TemporalSlice } from '@/types/situation'
 
 const situationStore = useSituationStore()
+const guideVisible = ref(true)
 
 const PHASES: TemporalPhase[] = ['history', 'present', 'future']
 const PHASE_META: Record<TemporalPhase, { icon: string; label: string; short: string }> = {
@@ -366,6 +380,29 @@ function formatAlt(altitude: number) {
     .target-selector {
       width: 220px;
     }
+  }
+}
+
+.hud-guide-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #bad3f2;
+  background: rgba(0, 210, 255, 0.08);
+  border: 1px dashed rgba(0, 210, 255, 0.35);
+  border-radius: 4px;
+
+  :deep(.el-icon) { color: #00d2ff; margin-top: 2px; flex-shrink: 0; }
+
+  b { color: #00d2ff; }
+
+  .guide-close {
+    flex-shrink: 0;
+    color: #6e87ab;
+    &:hover { color: #00d2ff; }
   }
 }
 

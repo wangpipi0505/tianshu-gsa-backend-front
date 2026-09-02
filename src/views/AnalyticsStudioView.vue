@@ -209,6 +209,8 @@ function restoreAllLayers() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 18px;
+  /* 两面板高度不一致时各自顶对齐，避免矮面板被拉出大片空白 */
+  align-items: start;
 
   @media (max-width: 1280px) {
     grid-template-columns: 1fr;

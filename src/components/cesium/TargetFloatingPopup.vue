@@ -166,7 +166,7 @@ const activeTab = ref<'basic' | 'status'>('basic')
 const screenPos = ref<{ x: number; y: number }>({ x: 500, y: 350 })
 const isVisibleOnScreen = ref<boolean>(true)
 
-let removePostRenderListener: (() => void) | null = null
+let animFrameId: number | null = null
 
 // 紧密附着在目标点旁边（随地球平移、旋转、缩放实时无延迟吸附）
 const popupPos = computed(() => {
@@ -226,13 +226,16 @@ function updateScreenPosition() {
   }
 }
 
+/** rAF 自持跟踪循环：路由切回工作台时本组件先于 Cesium 视窗初始化挂载，
+ *  必须在视窗就绪后仍持续逐帧吸附目标，否则标牌会停留在初始屏幕位置不漂移 */
+function trackingLoop() {
+  updateScreenPosition()
+  animFrameId = requestAnimationFrame(trackingLoop)
+}
+
 onMounted(() => {
   updateScreenPosition()
-  if (cesiumController.viewer) {
-    removePostRenderListener = cesiumController.viewer.scene.postRender.addEventListener(() => {
-      updateScreenPosition()
-    })
-  }
+  trackingLoop()
 })
 
 watch(
@@ -243,9 +246,9 @@ watch(
 )
 
 onUnmounted(() => {
-  if (removePostRenderListener) {
-    removePostRenderListener()
-    removePostRenderListener = null
+  if (animFrameId !== null) {
+    cancelAnimationFrame(animFrameId)
+    animFrameId = null
   }
 })
 

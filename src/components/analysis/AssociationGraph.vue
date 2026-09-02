@@ -64,8 +64,9 @@ function graphOption(): echarts.EChartsOption {
         type: 'graph',
         layout: 'force',
         force: {
-          repulsion: 340,
-          edgeLength: 130
+          repulsion: 520,
+          edgeLength: 150,
+          gravity: 0.12
         },
         roam: true,
         label: { show: true, color: '#f0f6fc', fontSize: 12 },
@@ -99,6 +100,7 @@ function graphOption(): echarts.EChartsOption {
 
 function renderGraph() {
   graphChart?.setOption(graphOption(), true)
+  graphChart?.resize()
 }
 
 function initGraph() {
@@ -157,7 +159,7 @@ onUnmounted(() => {
     gap: 14px;
 
     .graph-chart-dom {
-      height: 250px;
+      height: 300px;
     }
 
     .threat-zones-list {
@@ -168,6 +170,9 @@ onUnmounted(() => {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      /* 传感器覆盖圈较多时限高滚动，避免把整个面板撑出大片空白 */
+      max-height: 340px;
+      overflow-y: auto;
 
       .section-title {
         font-size: 12px;
