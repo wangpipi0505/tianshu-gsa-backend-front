@@ -50,6 +50,14 @@ export function getAffiliationBadge(affiliation: string): { label: string; color
 /** 获取目标类型对应的中文名 */
 export function getTargetTypeMeta(type: string): { label: string; tag: string } {
   switch (type) {
+    // 态势库实际使用的具体型号分类
+    case 'aircraft':
+      return { label: '空中目标', tag: '空中' }
+    case 'warship':
+      return { label: '水面舰艇', tag: '水面' }
+    case 'ground_facility':
+      return { label: '地面设施', tag: '设施' }
+    // 领域域分类 (接口模式兼容)
     case 'air':
       return { label: '空中目标', tag: '空中' }
     case 'maritime':

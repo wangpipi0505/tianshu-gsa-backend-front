@@ -15,9 +15,11 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import TacticalHeader from '@/components/common/TacticalHeader.vue'
 import { useAgentStore } from '@/stores/agentStore'
 
+const router = useRouter()
 const agentStore = useAgentStore()
 const viewRef = ref<any>(null)
 
@@ -28,6 +30,9 @@ function onToggleAgent() {
 function onOpenSceneModal() {
   if (viewRef.value && viewRef.value.openSceneModal) {
     viewRef.value.openSceneModal()
+  } else {
+    // 场景档案能力挂在三维工作台；其他路由点击时先切回工作台
+    router.push('/workbench')
   }
 }
 </script>
@@ -45,7 +50,7 @@ function onOpenSceneModal() {
 .main-content {
   flex: 1;
   width: 100%;
-  height: calc(100vh - 52px);
+  height: calc(100vh - 56px);
   position: relative;
   overflow: hidden;
 }

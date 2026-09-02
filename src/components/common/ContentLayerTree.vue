@@ -59,7 +59,7 @@
             </div>
           </div>
 
-          <!-- 专题透明度调节 -->
+          <!-- 专题透明度调节 (透明度渲染管线规划中，暂为占位) -->
           <div v-if="pkg.visible" class="tier-opacity-slider">
             <span class="label">专题透明度</span>
             <el-slider
@@ -68,8 +68,10 @@
               :max="100"
               :show-tooltip="false"
               size="small"
+              disabled
             />
             <span class="val">{{ pkg.opacity }}%</span>
+            <el-tag size="small" type="info" class="planned-tag">规划中</el-tag>
           </div>
 
           <!-- 专题二级全要素树形分支 -->
@@ -301,7 +303,7 @@
             </div>
           </div>
 
-          <!-- 顶级图层组透明度调节 -->
+          <!-- 顶级图层组透明度调节 (透明度渲染管线规划中，暂为占位) -->
           <div v-if="tier.visible && tier.opacity !== undefined" class="tier-opacity-slider">
             <span class="label">图层透明度</span>
             <el-slider
@@ -310,8 +312,10 @@
               :max="100"
               :show-tooltip="false"
               size="small"
+              disabled
             />
             <span class="val">{{ tier.opacity }}%</span>
+            <el-tag size="small" type="info" class="planned-tag">规划中</el-tag>
           </div>
 
           <!-- 二级分类列表 -->
@@ -332,11 +336,14 @@
                   </span>
                   <el-checkbox
                     v-model="cat.visible"
+                    :disabled="isPlannedNode(cat)"
+                    :title="isPlannedNode(cat) ? '该图层要素的渲染管线尚未接入' : undefined"
                     @change="onNodeCheckChange(cat)"
                   />
                   <span class="node-title category-title" :style="{ color: cat.color || '#a2b7d4' }">
                     {{ cat.name }}
                   </span>
+                  <el-tag v-if="isPlannedNode(cat)" size="small" type="info" class="planned-tag">规划中</el-tag>
                 </div>
               </div>
 
@@ -430,7 +437,8 @@ function onThematicPkgCheck(pkg: ThematicPackage) {
 function onThematicTargetCheck(pkg: ThematicPackage, target: ThematicTargetItem) {
   target.features.forEach((f) => (f.visible = target.visible))
   pkg.targetsVisible = pkg.targets.some((t) => t.visible)
-  pkg.visible = pkg.targetsVisible || (pkg.regionsVisible ?? false)
+  pkg.visible =
+    !!pkg.targetsVisible || !!pkg.regionsVisible || !!pkg.relationsVisible || !!pkg.workItemsVisible
   sceneStore.syncThematicToContentLayers(pkg)
   sceneStore.persistVisibility()
 }
@@ -438,7 +446,8 @@ function onThematicTargetCheck(pkg: ThematicPackage, target: ThematicTargetItem)
 function onThematicFeatureCheck(pkg: ThematicPackage, target: ThematicTargetItem) {
   target.visible = target.features.some((f) => f.visible)
   pkg.targetsVisible = pkg.targets.some((t) => t.visible)
-  pkg.visible = pkg.targetsVisible || (pkg.regionsVisible ?? false)
+  pkg.visible =
+    !!pkg.targetsVisible || !!pkg.regionsVisible || !!pkg.relationsVisible || !!pkg.workItemsVisible
   sceneStore.syncThematicToContentLayers(pkg)
   sceneStore.persistVisibility()
 }
@@ -447,8 +456,14 @@ function onThematicItemCheck(pkg: ThematicPackage) {
   pkg.regionsVisible = pkg.regions.some((r) => r.visible)
   pkg.relationsVisible = pkg.relations.some((rel) => rel.visible)
   pkg.workItemsVisible = pkg.workItems ? pkg.workItems.some((w) => w.visible) : false
-  pkg.visible = (pkg.targetsVisible ?? false) || pkg.regionsVisible || pkg.relationsVisible
+  pkg.visible =
+    !!pkg.targetsVisible || !!pkg.regionsVisible || !!pkg.relationsVisible || !!pkg.workItemsVisible
   sceneStore.persistVisibility()
+}
+
+// 渲染管线尚未接入的占位图层节点（底图/海岸线/海况/潮汐），暂禁用勾选避免"假开关"
+function isPlannedNode(node: LayerTreeNode): boolean {
+  return ['BASE-NODE-MAP', 'BASE-NODE-BORDER', 'ENV-NODE-SEA', 'ENV-NODE-GEO'].includes(node.id)
 }
 
 function onNodeCheckChange(node: LayerTreeNode) {
@@ -571,6 +586,11 @@ defineExpose({
   .label { font-size: 11px; color: #6e87ab; white-space: nowrap; }
   :deep(.el-slider) { flex: 1; }
   .val { font-size: 11px; color: #00d2ff; font-family: var(--font-family-mono); width: 32px; text-align: right; }
+}
+
+.planned-tag {
+  flex-shrink: 0;
+  opacity: 0.75;
 }
 
 .expand-icon {

@@ -133,7 +133,7 @@ import { ref } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
 import { useSituationStore } from '@/stores/situationStore'
 import { cesiumController } from '@/utils/cesiumHelper'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Menu,
   DeleteFilled,
@@ -158,22 +158,30 @@ const targetLon = ref(121.85)
 const targetLat = ref(24.65)
 const targetAlt = ref(120000)
 
-/** 一键清空地图上的所有态势要素 */
+/** 一键清空地图上的所有态势要素 (二次确认，避免误清后无快捷恢复) */
 function clearAllMapSituations() {
-  // 1. 关闭所有态势事实、研判专题、气象环境、推演标绘图层与所有专题包 (保留基础底图)
-  sceneStore.hideAllSituationLayers()
+  ElMessageBox.confirm(
+    '将清空三维地球上的全部态势要素、包络区、信息标牌与量测标绘，可通过图层树"一键恢复"还原。是否继续？',
+    '清空地图态势',
+    { confirmButtonText: '确认清空', cancelButtonText: '取消', type: 'warning' }
+  )
+    .then(() => {
+      // 1. 关闭所有态势事实、研判专题、气象环境、推演标绘图层与所有专题包 (保留基础底图)
+      sceneStore.hideAllSituationLayers()
 
-  // 2. 清空所有打开的信息标牌与当前选中目标
-  situationStore.openedPopupTargetIds = []
-  situationStore.selectedTargetId = null
+      // 2. 清空所有打开的信息标牌与当前选中目标
+      situationStore.openedPopupTargetIds = []
+      situationStore.selectedTargetId = null
 
-  // 3. 清空空间量测与战术标绘
-  cesiumController.clearMeasurements()
+      // 3. 清空空间量测与战术标绘
+      cesiumController.clearMeasurements()
 
-  // 4. 复位至三维地球全局全貌视角
-  cesiumController.flyToLocation(116.0, 26.0, 14500000, 0, -89.9)
+      // 4. 复位至三维地球全局全貌视角
+      cesiumController.flyToLocation(116.0, 26.0, 14500000, 0, -89.9)
 
-  ElMessage.success('已清空三维数字地球上的全部态势要素、包络区与信息标牌！')
+      ElMessage.success('已清空三维数字地球上的全部态势要素、包络区与信息标牌！')
+    })
+    .catch(() => undefined)
 }
 
 function toggleTool(tool: string) {
@@ -199,7 +207,7 @@ function toggleTool(tool: string) {
       ElMessage.success('已开启战术进攻箭头标绘：请在地球上点击起点和方向终点')
       cesiumController.startTacticalPlot(() => {
         activeTool.value = null
-        ElMessage.success('战术进攻箭头标绘成功！已注入当前场景')
+        ElMessage.success('战术进攻箭头标绘完成！箭头为临时叠加要素，可通过【清除标绘】移除（暂不随场景档案保存）')
       })
     }
   }

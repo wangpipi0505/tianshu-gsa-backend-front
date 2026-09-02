@@ -31,10 +31,10 @@
 
     <!-- 装备高精度矢量蓝图图片与激光扫描特效 -->
     <div v-if="target.imageUrl" class="popup-image-box">
-      <img :src="target.imageUrl" alt="装备实物战术蓝图" class="target-img" />
+      <img :src="target.imageUrl" alt="装备形貌示意图" class="target-img" />
       <div class="scan-line"></div>
       <div class="img-badge">
-        <span>● 实时态势推流中</span>
+        <span>装备形貌示意 (静态图)</span>
       </div>
     </div>
 
@@ -64,27 +64,20 @@
       </div>
       <div class="info-row">
         <span class="k">装备类型:</span>
-        <span class="v">{{ target.type === 'warship' ? '水面防空导弹驱逐舰' : target.type === 'aircraft' ? '空中隐身制空战机' : '地面防空导弹发射阵地' }}</span>
+        <span class="v">{{ getTargetTypeMeta(target.type).label }}</span>
       </div>
       <div class="info-row">
         <span class="k">物理尺度:</span>
-        <span class="v" v-if="target.type === 'warship'">长 157米 × 宽 19米 | 满载排水量 7500吨</span>
-        <span class="v" v-else-if="target.opticalFeatures">长 {{ target.opticalFeatures.lengthMeters }}米 × 翼展 {{ target.opticalFeatures.wingspanMeters }}米</span>
-        <span class="v" v-else>固定阵地设施</span>
+        <span class="v" v-if="target.opticalFeatures">长 {{ target.opticalFeatures.lengthMeters }}米 × 翼展 {{ target.opticalFeatures.wingspanMeters }}米</span>
+        <span class="v" v-else>暂无尺度观测数据</span>
       </div>
-      <div class="info-row">
+      <div class="info-row" v-if="target.radarFeatures">
         <span class="k">雷达载荷:</span>
-        <span class="v text-cyan font-mono" v-if="target.radarFeatures">{{ target.radarFeatures.frequencyBand }}</span>
+        <span class="v text-cyan font-mono">{{ target.radarFeatures.frequencyBand }}</span>
       </div>
-      <div class="info-row">
+      <div class="info-row" v-if="target.sensorCoverage">
         <span class="k">探测视距:</span>
-        <span class="v font-mono text-cyan" v-if="target.sensorCoverage">最大 {{ target.sensorCoverage.radarRangeKm }} 公里 ({{ target.sensorCoverage.scanAngleDeg }}° 覆盖)</span>
-      </div>
-      <div class="info-row">
-        <span class="k">主战武器:</span>
-        <span class="v" v-if="target.type === 'warship'">64单元通用垂直发射系统 (海红旗-9B / 鹰击-18)</span>
-        <span class="v" v-else-if="target.type === 'aircraft'">机载内置弹舱 (超视距空空弹 / 鹰击反舰弹)</span>
-        <span class="v" v-else>红旗-9B远程防空导弹垂直发射单元</span>
+        <span class="v font-mono text-cyan">最大 {{ target.sensorCoverage.radarRangeKm }} 公里 ({{ target.sensorCoverage.scanAngleDeg }}° 覆盖)</span>
       </div>
     </div>
 
@@ -130,7 +123,7 @@
         </div>
         <div class="field-item">
           <span class="k">战备健康:</span>
-          <span class="v font-mono text-green">装备健康度 {{ target.operationalStatus.fuelOrHealthPercent }}% | 备弹充足</span>
+          <span class="v font-mono text-green">装备健康度 {{ target.operationalStatus.fuelOrHealthPercent }}%</span>
         </div>
       </div>
     </div>
@@ -150,7 +143,17 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import * as Cesium from 'cesium'
 import type { SituationTarget } from '@/types/situation'
 import { cesiumController } from '@/utils/cesiumHelper'
+import { getTargetTypeMeta } from '@/utils/formatters'
+import { useAgentStore } from '@/stores/agentStore'
 import { Close, DataAnalysis } from '@element-plus/icons-vue'
+
+// Cesium 运行时存在 EllipsoidalOccluder，但官方类型声明缺失，这里做最小类型化
+interface EllipsoidalOccluderLike {
+  isPointVisible(point: Cesium.Cartesian3): boolean
+}
+const EllipsoidalOccluderImpl = (Cesium as unknown as {
+  EllipsoidalOccluder: new (ellipsoid: Cesium.Ellipsoid, position: Cesium.Cartesian3) => EllipsoidalOccluderLike
+}).EllipsoidalOccluder
 
 const props = defineProps<{
   target: SituationTarget | null
@@ -158,11 +161,11 @@ const props = defineProps<{
 
 const emit = defineEmits(['close', 'open-drawer'])
 
+const agentStore = useAgentStore()
 const activeTab = ref<'basic' | 'status'>('basic')
 const screenPos = ref<{ x: number; y: number }>({ x: 500, y: 350 })
 const isVisibleOnScreen = ref<boolean>(true)
 
-let animFrameId: number | null = null
 let removePostRenderListener: (() => void) | null = null
 
 // 紧密附着在目标点旁边（随地球平移、旋转、缩放实时无延迟吸附）
@@ -170,7 +173,8 @@ const popupPos = computed(() => {
   const popupWidth = 330
   const popupHeight = 320
   const agentPanelWidth = Math.min(440, Math.max(340, window.innerWidth * 0.25))
-  const rightLimit = window.innerWidth - agentPanelWidth - 20
+  // 助手收起时标牌可利用全屏宽度
+  const rightLimit = agentStore.isOpen ? window.innerWidth - agentPanelWidth - 20 : window.innerWidth - 20
 
   let x = screenPos.value.x + 18
   if (x + popupWidth > rightLimit) {
@@ -214,17 +218,12 @@ function updateScreenPosition() {
 
     // 检查是否被地球背面遮挡
     if (viewer.scene.globe && viewer.scene.globe.ellipsoid) {
-      const occluder = new Cesium.EllipsoidalOccluder(viewer.scene.globe.ellipsoid, viewer.camera.positionWC)
+      const occluder = new EllipsoidalOccluderImpl(viewer.scene.globe.ellipsoid, viewer.camera.positionWC)
       isVisibleOnScreen.value = occluder.isPointVisible(cartesian)
     } else {
       isVisibleOnScreen.value = true
     }
   }
-}
-
-function trackingLoop() {
-  updateScreenPosition()
-  animFrameId = requestAnimationFrame(trackingLoop)
 }
 
 onMounted(() => {
@@ -234,7 +233,6 @@ onMounted(() => {
       updateScreenPosition()
     })
   }
-  trackingLoop()
 })
 
 watch(
@@ -245,10 +243,6 @@ watch(
 )
 
 onUnmounted(() => {
-  if (animFrameId !== null) {
-    cancelAnimationFrame(animFrameId)
-    animFrameId = null
-  }
   if (removePostRenderListener) {
     removePostRenderListener()
     removePostRenderListener = null
