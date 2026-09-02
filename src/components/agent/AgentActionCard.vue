@@ -43,10 +43,10 @@
 
 <script setup lang="ts">
 import type { ActionCard } from '@/types/agent'
+import type { TemporalPhase } from '@/types/situation'
 import { useAgentStore } from '@/stores/agentStore'
 import { useSituationStore } from '@/stores/situationStore'
 import { useSceneStore } from '@/stores/sceneStore'
-import { useFusionStore } from '@/stores/fusionStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import { ElMessage } from 'element-plus'
 import { Lightning, Check, RefreshLeft } from '@element-plus/icons-vue'
@@ -58,7 +58,6 @@ const props = defineProps<{
 const agentStore = useAgentStore()
 const situationStore = useSituationStore()
 const sceneStore = useSceneStore()
-const fusionStore = useFusionStore()
 
 function execute() {
   agentStore.executeAction(props.action)
@@ -75,16 +74,22 @@ function execute() {
   }
 
   // 2. 战区精准隔离判断：区分中东战区 vs 东南海峡战区 vs 未来新增战区 (严格杜绝跨战区数据混杂)
+  //    战区路由仅对"聚焦类"动作生效；功能型动作 (三态切片/未来分支/回放/推演等) 必须优先走下方专属处理器
+  const FOCUS_ACTION_TYPES = ['fly_to_target', 'focus_mideast_convoy', 'focus_mideast_all', 'focus_warship', 'focus_fighter']
+  const isFocusAction = FOCUS_ACTION_TYPES.includes(props.action.actionType)
+
   const isMideastAction =
-    props.action.previewPayload?.theater === 'mideast' ||
-    props.action.actionType.includes('mideast') ||
-    (props.action.previewPayload?.targetId && props.action.previewPayload.targetId.startsWith('Target-ME'))
+    isFocusAction &&
+    (props.action.previewPayload?.theater === 'mideast' ||
+      props.action.actionType.includes('mideast') ||
+      (props.action.previewPayload?.targetId && props.action.previewPayload.targetId.startsWith('Target-ME')))
 
   const isTaiwanAction =
-    props.action.previewPayload?.theater === 'taiwan' ||
-    props.action.actionType === 'focus_warship' ||
-    props.action.actionType === 'focus_fighter' ||
-    (props.action.previewPayload?.targetId && props.action.previewPayload.targetId.startsWith('Target-00'))
+    isFocusAction &&
+    (props.action.previewPayload?.theater === 'taiwan' ||
+      props.action.actionType === 'focus_warship' ||
+      props.action.actionType === 'focus_fighter' ||
+      (props.action.previewPayload?.targetId && props.action.previewPayload.targetId.startsWith('Target-00')))
 
   if (isMideastAction) {
     // 【中东战区精准上图】：严格只激活中东作战实体与中东红黄蓝战区包络，关闭其他区域实体
@@ -167,7 +172,6 @@ function execute() {
   }
 
   if (props.action.actionType === 'toggle_thematic_layer') {
-    situationStore.toggleThreatCorridor(true)
     const allCoords = situationStore.regions.flatMap((r) => r.coordinates)
     if (allCoords.length > 0) {
       cesiumController.flyToCoordinates(allCoords, 750000)
@@ -180,7 +184,6 @@ function execute() {
     situationStore.showWeatherEffect = true
     situationStore.applyWeatherCompensation()
     situationStore.mergeTargetConflict('Target-001')
-    fusionStore.confirmCandidate('CAND-001')
     const affected = situationStore.targets.filter((t) => t.id === 'Target-001')
     cesiumController.flyToTargets(affected.length > 0 ? affected : situationStore.targets)
     ElMessage.success('态势上图成功：已开启气象仿真并完成多源融合误差补偿！')
@@ -232,15 +235,40 @@ function execute() {
     return
   }
 
-  // 7. 三态时空切片同屏对比上图
+  // 7. 三态/单态时空切片上图：按 previewPayload.slicePhases 决定点亮哪几个时间切面 (缺省全开)
   if (props.action.actionType === 'compare_temporal_slices') {
     situationStore.setTemporalMode('slices')
-    situationStore.showTemporalSlices = true
-    const target = situationStore.targets.find((t) => t.id === 'Target-001')
+    const phases = props.action.previewPayload?.slicePhases as TemporalPhase[] | undefined
+    if (phases && phases.length > 0) {
+      (['history', 'present', 'future'] as TemporalPhase[]).forEach((p) => {
+        situationStore.setSliceLayer(p, phases.includes(p))
+      })
+    }
+    const targetId = props.action.previewPayload?.targetId || situationStore.activeSliceTargetId
+    const target = situationStore.targets.find((t) => t.id === targetId)
     if (target) {
+      situationStore.activeSliceTargetId = target.id
       cesiumController.focusTarget(target, 600000)
     }
-    ElMessage.success('态势上图成功：已在三维地球同时投影历史、当前基准与未来预测三态时空切片与速度矢量！')
+    const phaseNames: Record<TemporalPhase, string> = { history: '历史观测', present: '当前基准', future: '未来预测' }
+    const modeText = phases && phases.length > 0
+      ? phases.length === 1
+        ? `单态时空切片 (仅${phaseNames[phases[0]]}切面)`
+        : `${phases.length} 态时空切片 (${phases.map((p) => phaseNames[p]).join('/')})`
+      : '历史、当前基准与未来预测三态时空切片'
+    ElMessage.success(`态势上图成功：已在三维地球投影${modeText}，可在对比面板中切换切面图层！`)
+    return
+  }
+
+  // 8. 推演假设航线上图 (与回滚中的 removeSimulationHypothesis 对称)
+  if (props.action.actionType === 'run_simulation') {
+    situationStore.removeSimulationHypothesis('SIM-HYPO-001')
+    situationStore.injectSimulationHypothesis('SIM-HYPO-001')
+    const hypo = situationStore.targets.find((t) => t.id === 'SIM-HYPO-001')
+    if (hypo) {
+      cesiumController.flyToTargets([hypo])
+    }
+    ElMessage.success('态势上图成功：低空突防推演假设航线已注入三维视窗并标记为推演工作内容！')
     return
   }
 
@@ -266,22 +294,36 @@ function rollback() {
     situationStore.setTemporalMode('playback')
     ElMessage.info('已退出多分支推演比对模式')
   } else if (props.action.actionType === 'compare_temporal_slices') {
-    situationStore.showTemporalSlices = false
-    situationStore.setTemporalMode('playback')
+    situationStore.toggleTemporalSlices(false)
     ElMessage.info('已退出三态时空切片对比模式')
   } else if (props.action.actionType === 'run_simulation') {
     situationStore.removeSimulationHypothesis('SIM-HYPO-001')
     ElMessage.info('已撤销推演假设航线，三维地球已恢复原始态势事实')
   } else if (props.action.actionType === 'toggle_thematic_layer') {
-    situationStore.toggleThreatCorridor(false)
-    ElMessage.info('已关闭防空威胁包络图层')
+    sceneStore.showAllSituationLayers()
+    ElMessage.info('已恢复全域图层，可勾选战区包络调整显示')
   } else if (props.action.actionType === 'start_temporal_playback') {
     situationStore.pausePlayback()
     situationStore.seekTime('2026-08-25 15:30:00')
     ElMessage.info('已暂停 4D 动态回放并复位时间轴')
   } else if (props.action.actionType === 'toggle_radar_cones') {
-    situationStore.showRadarCones = false
-    ElMessage.info('已隐藏雷达扫描立体锥')
+    ElMessage.info('雷达扫描锥图层受图层树控制，可在【图层控制】中按需显隐')
+  } else if (
+    props.action.actionType === 'focus_warship' ||
+    props.action.actionType === 'focus_fighter' ||
+    props.action.actionType === 'focus_mideast_convoy' ||
+    props.action.actionType === 'focus_mideast_all' ||
+    props.action.actionType === 'apply_weather_compensation'
+  ) {
+    // 撤销战区隔离与气象补偿：恢复被隐藏的全域图层，并还原环境基准值
+    sceneStore.showAllSituationLayers()
+    if (props.action.actionType === 'apply_weather_compensation') {
+      situationStore.showWeatherEffect = false
+      situationStore.resetEnvironment()
+    }
+    situationStore.openedPopupTargetIds = []
+    situationStore.selectedTargetId = null
+    ElMessage.info(`已撤销上图: ${props.action.title}`)
   } else {
     // 撤销上图：清空当前选中的标牌并复位视角
     situationStore.openedPopupTargetIds = []

@@ -144,8 +144,6 @@
           <div class="props-grid">
             <div v-for="(p, idx) in selectedConcept.properties" :key="idx" class="prop-card">
               <div class="p-name">{{ p }}</div>
-              <div class="p-type">类型: String / Number</div>
-              <div class="p-desc">映射自数据中台时空数据标准字段定义</div>
             </div>
           </div>
         </div>
@@ -177,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import * as echarts from 'echarts'
 import { storeToRefs } from 'pinia'
 import { useOntologyStore } from '@/stores/ontologyStore'
@@ -264,12 +262,59 @@ function openConceptDetail(cls: OntologyClass) {
 }
 
 function focusNodeInGraph() {
+  const concept = selectedConcept.value
   showDetailModal.value = false
   if (activeViewMode.value === 'dict_fullscreen') {
     activeViewMode.value = 'split_view'
   }
-  ElMessage.success(`已在知识图谱中聚焦本体概念：【${selectedConcept.value?.name}】`)
+  nextTick(() => {
+    if (!ontoChart || !concept) return
+    handleResize()
+    const nodeIndex = ontologyStore.nodes.findIndex((n) => n.id === concept.id)
+    if (nodeIndex < 0) return
+    // 高亮该概念节点并聚焦其邻接子图 (真实图谱定位，而非仅提示)
+    ontoChart.dispatchAction({ type: 'highlight', seriesIndex: 0, dataIndex: nodeIndex })
+    ontoChart.dispatchAction({ type: 'focusNodeAdjacency', seriesIndex: 0, dataIndex: nodeIndex })
+    ElMessage.success(`已在知识图谱中聚焦【${concept.name}】并高亮其邻接关系`)
+  })
 }
+
+/** 图例筛选与关键词检索联动图谱：未命中概念降透明度 */
+function applyGraphFilter() {
+  if (!ontoChart) return
+  const kw = searchKeyword.value.trim()
+  const graphData = getOntologyGraphData()
+  ontoChart.setOption({
+    series: [
+      {
+        data: graphData.nodes.map((n) => {
+          const cls = ONTOLOGY_CLASSES.value.find((c) => c.id === n.id)
+          const dom = DOMAIN_CATEGORIES.value[n.category]
+          const matchDomain = selectedDomain.value ? cls?.domain === selectedDomain.value : true
+          const matchKw = kw
+            ? !!cls && (cls.name.includes(kw) || cls.description.includes(kw) || cls.properties.some((p) => p.includes(kw)))
+            : true
+          const dimmed = !matchDomain || !matchKw
+          return {
+            ...n,
+            itemStyle: {
+              color: dom ? dom.color : '#00d2ff',
+              borderColor: '#ffffff',
+              borderWidth: 2,
+              shadowBlur: dimmed ? 0 : 16,
+              shadowColor: dom ? dom.color : '#00d2ff',
+              opacity: dimmed ? 0.18 : 1
+            }
+          }
+        })
+      }
+    ]
+  })
+}
+
+watch([selectedDomain, searchKeyword], () => {
+  applyGraphFilter()
+})
 
 function initChart() {
   if (!graphDomRef.value) return
@@ -343,8 +388,12 @@ function initChart() {
   })
 }
 
+/** 复位图谱缩放至默认视图 (保留当前力导向布局，不重新洗牌) */
 function resetGraphZoom() {
-  initChart()
+  if (!ontoChart) return
+  ontoChart.setOption({ series: [{ zoom: 1 }] })
+  applyGraphFilter()
+  ElMessage.info('已复位图谱缩放')
 }
 
 function onViewModeChange() {

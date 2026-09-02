@@ -85,7 +85,7 @@
         </div>
 
         <!-- 消息流 (高度最大化，支持充裕滚动研判) -->
-        <div class="chat-messages-stream">
+        <div ref="messagesStreamRef" class="chat-messages-stream">
           <div
             v-for="msg in agentStore.messages"
             :key="msg.id"
@@ -116,6 +116,19 @@
                 :traces="msg.reasoningTraces"
               />
 
+              <!-- 证据链溯源卡片 -->
+              <div v-if="msg.evidenceChain && msg.evidenceChain.length" class="evidence-chain-box">
+                <div class="ec-header">
+                  <el-icon><CircleCheck /></el-icon>
+                  <span>证据链溯源 ({{ msg.evidenceChain.length }} 条)</span>
+                </div>
+                <div v-for="evi in msg.evidenceChain" :key="evi.id" class="ec-item">
+                  <span class="ec-code">【{{ evi.id }}】</span>
+                  <span class="ec-title">{{ evi.title }}</span>
+                  <span v-if="evi.confidenceScore !== undefined" class="ec-score">{{ (evi.confidenceScore * 100).toFixed(0) }}%</span>
+                </div>
+              </div>
+
               <!-- 联动操作卡片 (保持现有框框与结构不变) -->
               <div v-if="msg.actionCards && msg.actionCards.length" class="action-cards-box">
                 <AgentActionCard
@@ -141,13 +154,13 @@
             type="textarea"
             :rows="2"
             placeholder="输入研判指令，如：'我想看一下我方舰艇的当前信息和状态'..."
-            @keydown.enter.prevent="onSubmit"
+            @keydown.enter="onEnterKey"
           />
           <div class="input-actions">
             <el-button size="small" circle @click="agentStore.resetSession" title="重置对话">
               <el-icon><Refresh /></el-icon>
             </el-button>
-            <el-button size="small" type="primary" :disabled="!inputPrompt.trim()" @click="onSubmit">
+            <el-button size="small" type="primary" :disabled="!inputPrompt.trim() || agentStore.isThinking" @click="onSubmit">
               <el-icon><Promotion /></el-icon>
               <span>发送研判指令</span>
             </el-button>
@@ -159,8 +172,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { marked } from 'marked'
+import { ElMessage } from 'element-plus'
 import { useAgentStore } from '@/stores/agentStore'
 import { FEATURED_PROMPTS, CATEGORIZED_PROMPT_TEMPLATES } from '@/mock/mockAgentScenarios'
 import IntentPreviewCard from '@/components/agent/IntentPreviewCard.vue'
@@ -173,7 +187,8 @@ import {
   Loading,
   Refresh,
   Promotion,
-  ArrowDown
+  ArrowDown,
+  CircleCheck
 } from '@element-plus/icons-vue'
 
 marked.setOptions({
@@ -192,9 +207,32 @@ function renderMarkdown(content: string): string {
 
 const agentStore = useAgentStore()
 const inputPrompt = ref('')
+const messagesStreamRef = ref<HTMLElement | null>(null)
+
+// 新消息/思考态变化时自动滚到最新内容
+watch(
+  () => [agentStore.messages.length, agentStore.isThinking],
+  () => {
+    nextTick(() => {
+      const el = messagesStreamRef.value
+      if (el) el.scrollTop = el.scrollHeight
+    })
+  }
+)
 
 function sendPrompt(prompt: string) {
+  if (agentStore.isThinking) {
+    ElMessage.warning('助手正在研判中，请稍候再发送新指令')
+    return
+  }
   inputPrompt.value = prompt
+  onSubmit()
+}
+
+/** Enter 发送 / Shift+Enter 换行 */
+function onEnterKey(e: KeyboardEvent) {
+  if (e.shiftKey) return
+  e.preventDefault()
   onSubmit()
 }
 
@@ -430,7 +468,39 @@ defineExpose({
   gap: 10px;
   padding-right: 4px;
 
-  .message-bubble-wrapper {
+  .evidence-chain-box {
+  margin-top: 8px;
+  border: 1px solid rgba(82, 196, 26, 0.35);
+  background: rgba(82, 196, 26, 0.06);
+  border-radius: 4px;
+  padding: 8px 10px;
+
+  .ec-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #52c41a;
+    margin-bottom: 6px;
+  }
+
+  .ec-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 11px;
+    padding: 3px 0;
+    border-bottom: 1px dashed rgba(82, 196, 26, 0.15);
+
+    &:last-child { border-bottom: none; }
+    .ec-code { color: #52c41a; font-weight: 700; font-family: var(--font-family-mono); flex-shrink: 0; }
+    .ec-title { color: #bad3f2; flex: 1; }
+    .ec-score { color: #52c41a; font-family: var(--font-family-mono); flex-shrink: 0; }
+  }
+}
+
+.message-bubble-wrapper {
     display: flex;
     flex-direction: column;
     gap: 4px;

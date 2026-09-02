@@ -65,8 +65,18 @@ export const useAgentStore = defineStore('agent', () => {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_clear_situations
     } else if (promptText.includes('分支') || promptText.includes('多分支') || promptText.includes('规避') || promptText.includes('压制')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_future_branches_viper
+    } else if (
+      // 历史单态意图优先于多态切片判断 (如"复盘历史航迹，只看历史切片")
+      promptText.includes('复盘') ||
+      promptText.includes('轨迹回顾') ||
+      (promptText.includes('历史') && !promptText.includes('当前') && !promptText.includes('未来')) ||
+      (promptText.includes('历史') && (promptText.includes('单态') || promptText.includes('只看') || promptText.includes('只需')))
+    ) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_history_review
     } else if (promptText.includes('切片') || promptText.includes('三态') || promptText.includes('T-30') || promptText.includes('T+30')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_temporal_slices
+    } else if (promptText.includes('回放') || promptText.includes('推流')) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_temporal_playback
     } else if (promptText.includes('未来') || promptText.includes('走向') || promptText.includes('预测') || (promptText.includes('演变') && promptText.includes('推演'))) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_future_evolution_viper
     } else if (promptText.includes('焦作') || (isMideastQuery && (promptText.includes('舰') || promptText.includes('护航') || promptText.includes('我方')))) {
@@ -89,10 +99,10 @@ export const useAgentStore = defineStore('agent', () => {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_future_evolution_viper
     } else if (promptText.includes('推演') || promptText.includes('突防') || promptText.includes('假设') || promptText.includes('比对')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_simulation_deduction
+    } else if (isMideastQuery) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_mideast_situation
     } else {
-      scenarioMsgs = isMideastQuery
-        ? MOCK_AGENT_SCENARIOS.scenario_mideast_situation
-        : MOCK_AGENT_SCENARIOS.scenario_future_evolution_viper
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_fallback
     }
 
     if (scenarioMsgs && scenarioMsgs.length > 1) {
@@ -127,13 +137,21 @@ export const useAgentStore = defineStore('agent', () => {
     })
   }
 
+  // mock 思考定时器：可取消，避免"重置对话后旧回复仍插入"与 isThinking 卡死
+  let replyTimer: ReturnType<typeof setTimeout> | null = null
+
   async function sendMessage(promptText: string) {
-    if (!promptText.trim()) return
+    if (!promptText.trim() || isThinking.value) return
     if (USE_MOCK) {
       isThinking.value = true
-      setTimeout(() => {
-        isThinking.value = false
-        pushMockReply(promptText)
+      if (replyTimer) clearTimeout(replyTimer)
+      replyTimer = setTimeout(() => {
+        replyTimer = null
+        try {
+          pushMockReply(promptText)
+        } finally {
+          isThinking.value = false
+        }
       }, 400)
       return
     }
@@ -150,6 +168,15 @@ export const useAgentStore = defineStore('agent', () => {
           activeIntent.value = result.agentMessage.intentUnderstanding
         }
       }
+    } catch (error) {
+      // 错误态显式呈现，不静默失败
+      const message = error instanceof Error ? error.message : String(error)
+      messages.value.push({
+        id: `MSG-ERR-${Date.now()}`,
+        sender: 'system',
+        content: `研判服务调用失败：${message}。请稍后重试，或点击【重置对话】恢复本地会话。`,
+        timestamp: new Date().toLocaleTimeString()
+      })
     } finally {
       isThinking.value = false
     }
@@ -175,6 +202,11 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   async function resetSession() {
+    if (replyTimer) {
+      clearTimeout(replyTimer)
+      replyTimer = null
+    }
+    isThinking.value = false
     if (USE_MOCK) {
       applyMock()
       return

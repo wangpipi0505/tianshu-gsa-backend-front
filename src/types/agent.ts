@@ -13,6 +13,9 @@ export type IntentCategory =
   | 'do_analysis'
   | 'do_simulation'
   | 'ask_knowledge'
+  | 'thematic_analysis'
+  | 'data_fusion'
+  | 'simulation_deduction'
 
 /** 可检查的问题理解预览卡片 (5.4.2) */
 export interface IntentUnderstanding {
@@ -69,6 +72,20 @@ export interface ActionCard {
     | 'run_simulation'
     | 'create_scene_draft'
     | 'generate_briefing'
+    | 'focus_mideast_convoy'
+    | 'focus_mideast_all'
+    | 'clear_all_situations'
+    | 'focus_warship'
+    | 'focus_fighter'
+    | 'highlight_relations'
+    | 'toggle_radar_cones'
+    | 'toggle_thematic_layer'
+    | 'apply_weather_compensation'
+    | 'start_temporal_playback'
+    | 'inject_future_prediction_tracks'
+    | 'start_temporal_evolution_playback'
+    | 'compare_future_branches'
+    | 'compare_temporal_slices'
   title: string
   description: string
   previewPayload: Record<string, any>

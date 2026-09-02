@@ -52,6 +52,13 @@ export const CATEGORIZED_PROMPT_TEMPLATES = [
     ]
   },
   {
+    category: '🕐 单态切片与历史复盘',
+    items: [
+      '复盘 VIPER-01 战机的历史航迹，只需要看历史观测切片。',
+      '调取敌重点突防战机的历史观测阶段切片进行复盘。'
+    ]
+  },
+  {
     category: '态势要素管理',
     items: [
       '清空地图上的所有态势。'
@@ -702,12 +709,108 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
           actionType: 'compare_temporal_slices',
           title: '📐 开启三态时空切片同屏对比',
           description: '在三维地球上同时投影历史、当前与未来多时段幽灵标牌与速度矢量',
-          previewPayload: { targetId: 'Target-001' },
+          previewPayload: { targetId: 'Target-001', slicePhases: ['history', 'present', 'future'] },
           executed: false,
           reversible: true,
           basisExplanation: '基于 4D 时空切片采样与幽灵标牌投影技术'
         }
       ]
+    }
+  ],
+
+  // 场景 10：历史航迹单态复盘 (仅点亮历史切面图层)
+  scenario_history_review: [
+    {
+      id: 'MSG-USER-HIST-01',
+      sender: 'user',
+      content: '复盘 VIPER-01 战机的历史航迹，只需要看历史观测切片。',
+      timestamp: '2026-08-25 15:32:10'
+    },
+    {
+      id: 'MSG-AGENT-HIST-01',
+      sender: 'agent',
+      content: '已提取【敌方重点突防战机】(VIPER-01) 的 **历史观测单态切片**：\n\n- **⏱️ 14:00 历史巡航**：双机编队巡航集结，保持雷达静默；\n- **⏱️ 15:00 历史徘徊**：空域异常徘徊，疑似建立打击航线。\n\n已为您准备【历史单态切片上图】动作卡片，上图后将**仅点亮历史切面图层**（当前与未来切面保持隐藏），便于专注复盘目标历史机动轨迹；您也可在对比面板中随时叠加其他切面。',
+      timestamp: '2026-08-25 15:32:18',
+      intentUnderstanding: {
+        rawPrompt: '复盘 VIPER-01 战机的历史航迹，只需要看历史观测切片。',
+        intentCategory: 'view_situation',
+        intentTitle: '历史观测单态切片复盘 (仅点亮历史切面图层)',
+        targetScope: ['Target-001 (VIPER-01)'],
+        spatialScope: '东南海峡以东空域',
+        timeScope: '历史观测区间 (14:00 ~ 15:00)',
+        actionSequence: ['抽取目标历史航迹切片', '仅开启历史切面图层 (关闭当前/未来切面)', '三维地球投影历史切片并聚焦'],
+        confidence: 0.97,
+        isConfirmed: true
+      },
+      ragSteps: [
+        {
+          id: 'RAG-HIST-1',
+          ragType: 'characteristic_rag',
+          ragTypeName: '历史航迹与观测日志检索',
+          query: 'VIPER-01 历史航迹 14:00-15:00 机动特征',
+          hitCount: 1,
+          hits: [
+            { title: '历史航迹观测记录', content: 'VIPER-01 双机编队巡航集结后转为空域异常徘徊', score: 0.96 }
+          ]
+        }
+      ],
+      reasoningTraces: [
+        {
+          stepNumber: 1,
+          phaseName: '历史切片提取',
+          inference: '目标历史阶段先集结后徘徊，机动模式由巡航转为待战。',
+          verifiedFact: '历史航迹采样与预警机雷达复观一致 (证据 E001)',
+          evidenceRefs: ['E001']
+        }
+      ],
+      evidenceChain: MOCK_EVIDENCE_ITEMS.slice(0, 1),
+      actionCards: [
+        {
+          id: 'ACT-HIST-01',
+          actionType: 'compare_temporal_slices',
+          title: '⏱️ 历史单态切片上图 (仅历史切面)',
+          description: '仅点亮历史观测切面图层，隐藏当前与未来切面，聚焦复盘目标历史机动航迹',
+          previewPayload: { targetId: 'Target-001', slicePhases: ['history'] },
+          executed: false,
+          reversible: true,
+          basisExplanation: '基于历史航迹采样与单态切片检索结论'
+        }
+      ]
+    }
+  ],
+
+  // 场景 11：未识别意图兜底 (能力清单引导，避免答非所问)
+  scenario_fallback: [
+    {
+      id: 'MSG-USER-FALLBACK',
+      sender: 'user',
+      content: '(未识别指令)',
+      timestamp: ''
+    },
+    {
+      id: 'MSG-AGENT-FALLBACK',
+      sender: 'agent',
+      content: `暂未能精确匹配该指令对应的研判场景。当前智能研判助手支持以下几类能力：
+
+- **重点实体检索**：如"我想看一下我方舰艇的当前信息和状态"、"查看敌方重点突防战机"；
+- **三态切片与历史复盘**：如"对比历史、当前与未来三态时空切片"、"复盘 VIPER-01 的历史航迹"；
+- **战区态势与包络**：如"中东波斯湾与霍尔木兹海峡当前态势如何？"、"加载红黄蓝三色战区包络"；
+- **战术关系与雷达覆盖**：如"分析目标之间的战术关系并在三维地球上标绘"、"查看各实体的雷达探测覆盖锥"；
+- **推演与回放**：如"开启全过程 4D 时空态势动态演变推流回放"、"针对重点目标发起低空超音速突防推演"。
+
+请尝试换一种表述，或点击上方【指令模板】直接发起研判。`,
+      timestamp: '',
+      intentUnderstanding: {
+        rawPrompt: '(未识别指令)',
+        intentCategory: 'ask_knowledge',
+        intentTitle: '意图未精确匹配，返回能力清单引导',
+        targetScope: [],
+        spatialScope: '当前场景全域',
+        timeScope: '实时',
+        actionSequence: ['意图匹配失败', '返回能力清单引导用户改写指令'],
+        confidence: 0.3,
+        isConfirmed: false
+      }
     }
   ]
 }
