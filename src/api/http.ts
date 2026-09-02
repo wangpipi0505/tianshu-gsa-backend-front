@@ -11,6 +11,29 @@ export const http = axios.create({
   timeout: 30000
 })
 
+const TOKEN_KEY = 'gsa.accessToken'
+
+export function setAccessToken(token: string | null) {
+  if (token) {
+    sessionStorage.setItem(TOKEN_KEY, token)
+  } else {
+    sessionStorage.removeItem(TOKEN_KEY)
+  }
+}
+
+export function getAccessToken(): string | null {
+  return sessionStorage.getItem(TOKEN_KEY)
+}
+
+http.interceptors.request.use((config) => {
+  const portal = import.meta.env.VITE_PORTAL_TOKEN
+  const token = portal || getAccessToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 function unwrap<T>(payload: ApiEnvelope<T>): T {
   if (payload == null || typeof payload.code !== 'number') {
     throw new Error('后端响应格式无效')

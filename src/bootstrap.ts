@@ -1,5 +1,7 @@
 import { ElMessage } from 'element-plus'
-import { USE_MOCK } from '@/config/dataSource'
+import { fetchDemoToken } from '@/api/auth'
+import { setAccessToken } from '@/api/http'
+import { USE_MOCK, enableMockFallback } from '@/config/dataSource'
 import { useSituationStore } from '@/stores/situationStore'
 import { useFusionStore } from '@/stores/fusionStore'
 import { useSceneStore } from '@/stores/sceneStore'
@@ -25,6 +27,10 @@ export async function bootstrapWorkspace() {
   }
 
   try {
+    if (!import.meta.env.VITE_PORTAL_TOKEN) {
+      const issued = await fetchDemoToken()
+      setAccessToken(issued.token)
+    }
     await Promise.all([
       useSituationStore().loadSnapshot(),
       useFusionStore().loadFromApi(),
@@ -36,6 +42,8 @@ export async function bootstrapWorkspace() {
     await useAgentStore().loadFromApi()
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    // 回退后同步翻转运行时开关，后续操作不再尝试访问后端
+    enableMockFallback()
     applyAllMocks()
     ElMessage.warning(`后端不可用，已回退到本地原型数据：${message}`)
   }

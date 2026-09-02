@@ -8,7 +8,8 @@
     "dev:mock": "vite --mode mock",
     "build": "vite build",
     "preview": "vite preview",
-    "export-seed": "tsx scripts/export-seed.mts"
+    "export-seed": "tsx scripts/export-seed.mts",
+    "check-seed-sync": "tsx scripts/check-seed-sync.mts"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

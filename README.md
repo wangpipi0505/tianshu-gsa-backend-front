@@ -1,65 +1,33 @@
 # “天枢”全球三维数字地球与全维智能态势研判系统 (TianShu-GSA)
 
-> **TianShu-GSA**: *Global Multi-Domain Situation Display & Intelligent Assessment Platform*  
-> 基于 Vue 3 + TypeScript + Pinia + Cesium + Element Plus 构建的军工级数字地球与海空智能态势研判系统。
+> **TianShu-GSA**: *Global Multi-Domain Situation Display & Intelligent Assessment Platform*
+> Vue 3 + TypeScript + Pinia + Cesium + Element Plus。
 
----
+本仓库是**独立前端仓**（`tianshu-gsa-backend-front`），不要再 `cd front`。
 
-## 🌟 系统核心功能与特色
-
-1. **三维数字地球主工作台 (Cesium 3D Engine)**
-   - 全球卫星遥感影像、深色战术底图与矢量电子地图动态切换；
-   - 严格正俯瞰垂直居中视角（Pitch: -89.9°，Heading: 0°），彻底避免倾斜沉底与误操作；
-   - 基于 `drillPick` 白名单的高精度实体拾取，完全穿透雷达锥、航迹与战区包络；
-   - 随地球平移/缩放无延迟紧贴吸附的目标悬浮标牌，指向箭头自适应方位与垂直高度对准。
-
-2. **双战区全要素实战态势覆盖**
-   - **东南海峡战区**：敌方突防战机（VIPER-01）、电子战机（SHADOW-02）、预警指挥机（SENTINEL-09）、我方长沙舰（052D）、沿海 HQ-9B 防空阵地；
-   - **中东波斯湾/霍尔木兹海峡战区**：我方焦作舰（052D 远海护航）、外军突防战机（FALCON-01）、预警机（HAWKEYE-07）、电子战机（RAVEN-03）、要塞防空阵地（SAM-ME01）；
-   - **红黄蓝战区立体空间包络**：红区导弹拦截杀伤包络体、黄区巡逻管制走廊、蓝区协同扫描与护航安全走廊。
-
-3. **双视角图层控制抽屉（双向同频同步）**
-   - **🎯 态势研判专题视图 (业务视角)**：按战区与研判课题组织，复合聚合作战实体群、3D 管制包络、雷达扫描锥、战术关系链路与推演成果，支持一键战区聚焦；
-   - **🌐 实体资产分类视图 (资产视角)**：按空中作战域、水面舰艇域、地面防空域与战场气象环境分类，支持微观细粒度点对点控制。
-
-4. **智能态势研判助手 (AI Agent & RAG Reasoning)**
-   - 人在回路（Human-in-the-Loop）决策确认机制；
-   - 意图识别、知识检索（RAG）推理链与战区精准隔离的一键【态势上图】；
-   - 紧凑单行高频问答胶囊 + 多分类研判指令模板下拉菜单。
-
-5. **多维情报数据分析与综合研判工作区 (Analytics Studio)**
-   - 统计分布对比、机动轨迹三维剖面分析、本体知识关联图谱、真实态势 vs 推演假设同场比对；
-   - **研判成果沉淀与发布闭环**：提炼异常机动徘徊警戒空域，发布时自动清空无关要素并动态挂载至图层树与三维地球。
-
-6. **多源时空数据融合引擎 (Data Fusion Mid-Platform)**
-   - 多源数据资产目录、时空对齐、候选关联确认（置信度打分、时空临近性与属性契合度）、冲突消解与融合溯源。
-
----
-
-## 🛠️ 技术栈
-
-- **核心框架**：Vue 3 (Composition API / `<script setup>`) + TypeScript
-- **状态中台**：Pinia
-- **三维引擎**：Cesium 1.118+
-- **UI 组件库**：Element Plus + `@element-plus/icons-vue`
-- **样式工程**：Sass (SCSS)
-- **图表与图谱**：ECharts
-- **构建工具**：Vite 5
-
----
-
-## 🚀 快速启动
+## 两种跑法
 
 ```bash
-# 进入前端工程目录
-cd front
-
-# 安装依赖
 npm install
-
-# 启动本地开发服务 (默认端口 3000)
-npm run dev
-
-# 生产环境编译构建
-npm run build
 ```
+
+| 模式 | 命令 | 说明 |
+| --- | --- | --- |
+| 接后端 | `npm run dev` | 默认 `VITE_USE_MOCK=false`，Vite 把 `/api` 代理到 `127.0.0.1:18086` |
+| 纯前端原型 | `npm run dev:mock` | 不访问后端，使用 `src/mock/*` |
+
+后端挂了会自动回退同一套 mock，并提示，不会空屏。**不要删除 `src/mock`。**
+
+接库时，启动会向 `/api/gsa/v1/auth/demo-token` 换本地 JWT；若门户已注入令牌，可设 `VITE_PORTAL_TOKEN`。
+
+## 其它命令
+
+```bash
+npm run build
+npm run export-seed      # 从 mock 导出后端种子
+npm run check-seed-sync  # 检查 mock 与后端 seed 的稳定主键是否对齐
+```
+
+## 技术栈
+
+Vue 3、Pinia、Cesium、Element Plus、ECharts、Vite 5、axios。
