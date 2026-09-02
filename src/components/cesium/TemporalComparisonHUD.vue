@@ -1,17 +1,16 @@
 <template>
   <transition name="slide-fade">
     <div v-if="situationStore.showTemporalSlices" class="temporal-comparison-hud tactical-panel">
-      <!-- 头部控制条 -->
+      <!-- 头部控制条：标题 + 目标切换 + 关闭 -->
       <div class="hud-header">
         <div class="title-box">
           <span class="hud-badge">4D TEMPORAL SLICE</span>
-          <h3 class="hud-title">📐 4D时空演变三态切片对比透视面板</h3>
+          <h3 class="hud-title">📐 时空三态切片对比</h3>
         </div>
 
         <div class="header-right-tools">
-          <!-- 目标实体切换选择器 -->
           <el-select
-            v-model="activeTargetId"
+            v-model="selectedTargetIdProxy"
             size="small"
             class="target-selector"
             @change="onTargetChange"
@@ -35,100 +34,109 @@
         </div>
       </div>
 
-      <!-- 核心演变趋势关键指标摘要卡片 -->
-      <div class="metrics-summary-bar">
-        <div class="metric-item">
-          <span class="m-label">机动航速演变</span>
-          <div class="m-val-group">
-            <span class="m-val from">510 节</span>
-            <span class="m-arrow">➔</span>
-            <span class="m-val current">530 节</span>
-            <span class="m-arrow">➔</span>
-            <span class="m-val to">680 节</span>
-          </div>
-          <span class="m-delta positive">加速 +28.3% (超音速)</span>
+      <!-- 三态图层独立显隐开关 (历史/现在/未来三个时间切面) -->
+      <div class="layer-switch-bar">
+        <span class="bar-label">切面图层:</span>
+        <div
+          v-for="phase in PHASES"
+          :key="phase"
+          class="layer-switch"
+          :class="[phase, { on: situationStore.sliceLayers[phase] }]"
+          @click="situationStore.setSliceLayer(phase, !situationStore.sliceLayers[phase])"
+        >
+          <span class="dot"></span>
+          <span>{{ PHASE_META[phase].icon }} {{ PHASE_META[phase].short }}</span>
         </div>
-
-        <div class="metric-item">
-          <span class="m-label">飞行高度突变</span>
-          <div class="m-val-group">
-            <span class="m-val from">8600 m</span>
-            <span class="m-arrow">➔</span>
-            <span class="m-val current">8500 m</span>
-            <span class="m-arrow">➔</span>
-            <span class="m-val to danger">300 m</span>
-          </div>
-          <span class="m-delta negative">俯冲 -8200 m (掠海规避)</span>
-        </div>
-
-        <div class="metric-item">
-          <span class="m-label">防空威胁等级</span>
-          <div class="m-val-group">
-            <span class="m-val from">中度预警</span>
-            <span class="m-arrow">➔</span>
-            <span class="m-val current">边界逼近</span>
-            <span class="m-arrow">➔</span>
-            <span class="m-val to critical">高危突防 (火控界)</span>
-          </div>
-          <span class="m-delta critical">拦截窗口: 4.2分钟</span>
-        </div>
+        <span class="bar-hint">点击地球上的切片点可展开详情</span>
       </div>
 
-      <!-- 三态切片全景属性对比矩阵表格 -->
-      <div class="matrix-table-container">
-        <table class="matrix-table">
-          <thead>
-            <tr>
-              <th style="width: 14%">对比维度</th>
-              <th style="width: 28%" class="col-history">
-                <span class="badge-phase hist">⏱️ 历史观测阶段 (T-N)</span>
-                <span class="time-stamp">14:00:00 ~ 15:00:00</span>
-              </th>
-              <th style="width: 28%" class="col-present">
-                <span class="badge-phase pres">🟢 当前实时基准 (T0)</span>
-                <span class="time-stamp">15:30:00 (实时事实)</span>
-              </th>
-              <th style="width: 30%" class="col-future">
-                <span class="badge-phase fut">🔮 未来预测推演 (T+N)</span>
-                <span class="time-stamp">16:00:00 ~ 16:30:00</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="dim-title">空间经纬坐标</td>
-              <td>东经 123.70° ~ 123.05°<br/>北纬 23.80° ~ 24.50°</td>
-              <td class="highlight-present">东经 122.60°<br/>北纬 24.85°</td>
-              <td class="highlight-future">东经 121.50° ~ 120.60°<br/>北纬 24.15° ~ 23.65°</td>
-            </tr>
-            <tr>
-              <td class="dim-title">战术机动意图</td>
-              <td>双机编队巡航集结，随后在空域异常盘旋，意图建立突击走廊</td>
-              <td class="highlight-present">转入向我水面编队与沿海防空阵地高速逼近战位</td>
-              <td class="highlight-future">急剧俯冲至 300 米掠海超音速突防，规避雷达实施威慑</td>
-            </tr>
-            <tr>
-              <td class="dim-title">雷达与火控态势</td>
-              <td>机载雷达保持静默/间歇扫描，接收预警机战术引导</td>
-              <td class="highlight-present">进入我方 052D 驱逐舰 346A 相控阵雷达搜索捕获视线</td>
-              <td class="highlight-future">进入海红旗-9B防空导弹 65km 杀伤圈，持续锁定火控待发</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <template v-if="activeTarget">
+        <!-- 演变趋势关键指标摘要卡片 (实时计算自所选目标的时空切片) -->
+        <div class="metrics-summary-bar">
+          <div class="metric-item">
+            <span class="m-label">机动航速演变</span>
+            <div class="m-val-group">
+              <span class="m-val from">{{ speedMetric.from }} 节</span>
+              <span class="m-arrow">➔</span>
+              <span class="m-val current">{{ speedMetric.mid }} 节</span>
+              <span class="m-arrow">➔</span>
+              <span class="m-val to">{{ speedMetric.to }} 节</span>
+            </div>
+            <span class="m-delta" :class="speedMetric.tone">{{ speedMetric.delta }}</span>
+          </div>
+
+          <div class="metric-item">
+            <span class="m-label">高度演变</span>
+            <div class="m-val-group">
+              <template v-if="!altitudeMetric.isSurface">
+                <span class="m-val from">{{ altitudeMetric.from }}</span>
+                <span class="m-arrow">➔</span>
+                <span class="m-val current">{{ altitudeMetric.mid }}</span>
+                <span class="m-arrow">➔</span>
+                <span class="m-val to" :class="{ danger: altitudeMetric.descending }">{{ altitudeMetric.to }}</span>
+              </template>
+              <span v-else class="m-val current">水面航渡 (高程恒定)</span>
+            </div>
+            <span class="m-delta" :class="altitudeMetric.tone">{{ altitudeMetric.delta }}</span>
+          </div>
+
+          <div class="metric-item">
+            <span class="m-label">切片时间跨度</span>
+            <div class="m-val-group">
+              <span class="m-val from">{{ spanMetric.start }}</span>
+              <span class="m-arrow">➔</span>
+              <span class="m-val to">{{ spanMetric.end }}</span>
+            </div>
+            <span class="m-delta neutral">共 {{ slices.length }} 个时空切片</span>
+          </div>
+        </div>
+
+        <!-- 三态切片对比列 (每列一个时相，点击切片卡联动地球高亮与飞行) -->
+        <div class="phase-columns">
+          <div v-for="phase in PHASES" :key="phase" class="phase-col">
+            <div class="col-head" :class="phase">
+              <span class="badge">{{ PHASE_META[phase].icon }} {{ PHASE_META[phase].label }}</span>
+              <span class="time-range">{{ phaseTimeRange[phase] }}</span>
+            </div>
+
+            <div
+              v-for="card in slicesByPhase[phase]"
+              :key="card.index"
+              class="slice-card"
+              :class="{ active: isActiveCard(card) }"
+              @click="onSliceClick(card)"
+            >
+              <div class="row-main">
+                <span class="s-time">{{ card.slice.time }}</span>
+                <span class="s-label">{{ card.slice.label }}</span>
+              </div>
+              <div class="row-sub">
+                <span>{{ formatLatLon(card.slice) }}</span>
+                <span>高程 {{ formatAlt(card.slice.altitude) }} | {{ card.slice.speedKnots }}节</span>
+              </div>
+              <div class="row-remark">{{ card.slice.remark }}</div>
+            </div>
+
+            <div v-if="!slicesByPhase[phase].length" class="col-empty">该切面暂无切片</div>
+          </div>
+        </div>
+      </template>
+      <div v-else class="hud-empty">当前无目标携带时空切片数据</div>
 
       <!-- 底部时空联动操作栏 -->
-      <div class="hud-action-footer">
+      <div v-if="activeTarget" class="hud-action-footer">
         <div class="slice-jump-buttons">
-          <span class="jump-label">📍 时空切片视角直达:</span>
-          <el-button size="small" plain @click="focusSlice('history')">
-            <span>历史集结点 (14:00)</span>
-          </el-button>
-          <el-button size="small" type="success" plain @click="focusSlice('present')">
-            <span>当前基准点 (15:30)</span>
-          </el-button>
-          <el-button size="small" type="primary" plain @click="focusSlice('future')">
-            <span>未来预测交汇点 (16:00)</span>
+          <span class="jump-label">📍 切面视角直达:</span>
+          <el-button
+            v-for="phase in PHASES"
+            :key="phase"
+            size="small"
+            :disabled="!slicesByPhase[phase].length"
+            @click="focusPhase(phase)"
+          >
+            <span>
+              {{ PHASE_META[phase].icon }} {{ PHASE_META[phase].short }}{{ slicesByPhase[phase].length ? ` (${slicesByPhase[phase][0].slice.time})` : '' }}
+            </span>
           </el-button>
         </div>
 
@@ -139,7 +147,7 @@
             @click="startEvolutionPlayback"
           >
             <el-icon><VideoPlay /></el-icon>
-            <span>▶ 启动全时空动态演变推流</span>
+            <span>▶ 全时空演变推流</span>
           </el-button>
         </div>
       </div>
@@ -148,47 +156,140 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useSituationStore } from '@/stores/situationStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import { ElMessage } from 'element-plus'
 import { Close, VideoPlay } from '@element-plus/icons-vue'
+import type { TemporalPhase, TemporalSlice } from '@/types/situation'
 
 const situationStore = useSituationStore()
-const activeTargetId = ref('Target-001')
 
-const targetsWithSlices = computed(() => {
-  return situationStore.targets.filter((t) => t.temporalSlices && t.temporalSlices.length > 0)
+const PHASES: TemporalPhase[] = ['history', 'present', 'future']
+const PHASE_META: Record<TemporalPhase, { icon: string; label: string; short: string }> = {
+  history: { icon: '⏱️', label: '历史观测 (T-N)', short: '历史' },
+  present: { icon: '🟢', label: '当前基准 (T0)', short: '当前' },
+  future: { icon: '🔮', label: '未来推演 (T+N)', short: '未来' }
+}
+
+interface SliceCard {
+  slice: TemporalSlice
+  index: number
+}
+
+const targetsWithSlices = computed(() => situationStore.targets.filter((t) => t.temporalSlices?.length))
+const activeTarget = computed(() => situationStore.targets.find((t) => t.id === situationStore.activeSliceTargetId) || null)
+const slices = computed<TemporalSlice[]>(() => activeTarget.value?.temporalSlices ?? [])
+
+const slicesByPhase = computed<Record<TemporalPhase, SliceCard[]>>(() => {
+  const map: Record<TemporalPhase, SliceCard[]> = { history: [], present: [], future: [] }
+  slices.value.forEach((slice, index) => map[slice.phase].push({ slice, index }))
+  return map
+})
+
+const phaseTimeRange = computed<Record<TemporalPhase, string>>(() => {
+  const result = {} as Record<TemporalPhase, string>
+  PHASES.forEach((phase) => {
+    const cards = slicesByPhase.value[phase]
+    result[phase] = cards.length
+      ? cards.length > 1
+        ? `${cards[0].slice.time} ~ ${cards[cards.length - 1].slice.time}`
+        : cards[0].slice.time
+      : '--'
+  })
+  return result
+})
+
+// 目标选择器 v-model 代理至 store (地球上点击切片也会同步此处)
+const selectedTargetIdProxy = computed<string>({
+  get: () => situationStore.activeSliceTargetId,
+  set: (val) => {
+    situationStore.activeSliceTargetId = val
+  }
 })
 
 function onTargetChange(id: string) {
-  activeTargetId.value = id
+  situationStore.activeSliceKey = null
   const target = situationStore.targets.find((t) => t.id === id)
   if (target) {
     cesiumController.focusTarget(target, 600000)
-    ElMessage.info(`已切换至【${target.codeName}】时空切片对比视窗`)
+    ElMessage.info(`已切换至【${target.codeName}】时空切片对比`)
   }
 }
 
-function focusSlice(phase: 'history' | 'present' | 'future') {
-  const target = situationStore.targets.find((t) => t.id === activeTargetId.value)
-  if (!target || !target.temporalSlices) return
-
-  const slice = target.temporalSlices.find((s) => s.phase === phase)
-  if (slice) {
-    situationStore.seekTime(`2026-08-25 ${slice.time}`)
-    cesiumController.flyToLocation(slice.longitude, slice.latitude, 450000, 0, -89.9)
-    ElMessage.success(`视角已精准定位至 ${slice.label} (${slice.time})`)
+// ---- 演变趋势指标 (全部计算自切片数据，无硬编码剧本) ----
+const speedMetric = computed(() => {
+  const list = slices.value
+  if (!list.length) return { from: '--', mid: '--', to: '--', delta: '暂无切片', tone: 'neutral' }
+  const presentSlice = list.find((s) => s.phase === 'present')
+  const from = list[0].speedKnots
+  const mid = presentSlice?.speedKnots ?? list[0].speedKnots
+  const to = list[list.length - 1].speedKnots
+  const pct = from > 0 ? Math.round(((to - from) / from) * 1000) / 10 : 0
+  return {
+    from: String(from),
+    mid: String(mid),
+    to: String(to),
+    delta: `${pct >= 0 ? '加速' : '减速'} ${Math.abs(pct)}%`,
+    tone: pct > 1 ? 'positive' : pct < -1 ? 'negative' : 'neutral'
   }
+})
+
+const altitudeMetric = computed(() => {
+  const list = slices.value
+  if (!list.length) {
+    return { isSurface: false, from: '--', mid: '--', to: '--', delta: '暂无切片', tone: 'neutral', descending: false }
+  }
+  if (list.every((s) => s.altitude < 1)) {
+    return { isSurface: true, from: '0', mid: '0', to: '0', delta: '水面航渡，无高程变化', tone: 'neutral', descending: false }
+  }
+  const presentSlice = list.find((s) => s.phase === 'present')
+  const from = list[0].altitude
+  const mid = presentSlice?.altitude ?? list[0].altitude
+  const to = list[list.length - 1].altitude
+  const deltaM = to - from
+  return {
+    isSurface: false,
+    from: formatAlt(from),
+    mid: formatAlt(mid),
+    to: formatAlt(to),
+    delta: `${deltaM >= 0 ? '爬升' : '俯冲'} ${Math.abs(deltaM)} m`,
+    tone: deltaM < -500 ? 'critical' : deltaM > 500 ? 'positive' : 'neutral',
+    descending: deltaM < 0
+  }
+})
+
+const spanMetric = computed(() => {
+  const list = slices.value
+  if (!list.length) return { start: '--', end: '--' }
+  return { start: list[0].time, end: list[list.length - 1].time }
+})
+
+// ---- 联动交互 ----
+function isActiveCard(card: SliceCard) {
+  const key = situationStore.activeSliceKey
+  return !!key && key.targetId === situationStore.activeSliceTargetId && key.index === card.index
+}
+
+function onSliceClick(card: SliceCard) {
+  if (!activeTarget.value) return
+  situationStore.selectTemporalSlice(activeTarget.value.id, card.index)
+  situationStore.seekTime(situationStore.getSliceFullTime(card.slice))
+  // 斜视飞行 (pitch -45°)，让高度落差垂线可见
+  cesiumController.flyToLocation(card.slice.longitude, card.slice.latitude, 450000, 0, -45)
+}
+
+function focusPhase(phase: TemporalPhase) {
+  const card = slicesByPhase.value[phase][0]
+  if (card) onSliceClick(card)
 }
 
 function startEvolutionPlayback() {
-  situationStore.seekTime('2026-08-25 13:00:00')
+  situationStore.seekTime(situationStore.timelineRange[0])
   situationStore.playbackSpeed = 2
   situationStore.startPlayback()
-  const target = situationStore.targets.find((t) => t.id === activeTargetId.value)
-  if (target) {
-    cesiumController.focusTarget(target, 650000)
+  if (activeTarget.value) {
+    cesiumController.focusTarget(activeTarget.value, 650000)
   }
   ElMessage.success('已启动全时空动态演化推流播放！')
 }
@@ -196,6 +297,14 @@ function startEvolutionPlayback() {
 function closeHUD() {
   situationStore.toggleTemporalSlices(false)
   ElMessage.info('已退出三态时空切片对比模式')
+}
+
+function formatLatLon(slice: TemporalSlice) {
+  return `${slice.longitude.toFixed(2)}°E, ${slice.latitude.toFixed(2)}°N`
+}
+
+function formatAlt(altitude: number) {
+  return altitude >= 1000 ? `${(altitude / 1000).toFixed(1)}km` : `${altitude}m`
 }
 </script>
 
@@ -207,7 +316,7 @@ function closeHUD() {
   width: 780px;
   max-width: calc(100vw - 480px);
   z-index: 20;
-  padding: 14px 18px;
+  padding: 12px 16px;
   background: rgba(10, 18, 32, 0.96);
   border: 1px solid rgba(0, 210, 255, 0.5);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 210, 255, 0.25);
@@ -215,7 +324,7 @@ function closeHUD() {
   backdrop-filter: blur(16px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .hud-header {
@@ -260,19 +369,79 @@ function closeHUD() {
   }
 }
 
+.layer-switch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .bar-label {
+    font-size: 11px;
+    color: #a2b7d4;
+  }
+
+  .layer-switch {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    font-size: 11px;
+    color: #6e87ab;
+    border: 1px solid rgba(110, 135, 171, 0.35);
+    border-radius: 3px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s;
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.4;
+    }
+
+    &.history.on {
+      color: #00d2ff;
+      border-color: rgba(0, 210, 255, 0.6);
+      background: rgba(0, 210, 255, 0.12);
+      .dot { opacity: 1; box-shadow: 0 0 6px #00d2ff; }
+    }
+
+    &.present.on {
+      color: #52c41a;
+      border-color: rgba(82, 196, 26, 0.6);
+      background: rgba(82, 196, 26, 0.12);
+      .dot { opacity: 1; box-shadow: 0 0 6px #52c41a; }
+    }
+
+    &.future.on {
+      color: #d3adf7;
+      border-color: rgba(211, 173, 247, 0.6);
+      background: rgba(211, 173, 247, 0.12);
+      .dot { opacity: 1; box-shadow: 0 0 6px #d3adf7; }
+    }
+  }
+
+  .bar-hint {
+    margin-left: auto;
+    font-size: 10px;
+    color: #4a5f7d;
+  }
+}
+
 .metrics-summary-bar {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 
   .metric-item {
     background: rgba(14, 25, 43, 0.85);
     border: 1px solid rgba(0, 210, 255, 0.25);
     border-radius: 3px;
-    padding: 8px 12px;
+    padding: 7px 10px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
 
     .m-label {
       font-size: 11px;
@@ -293,7 +462,6 @@ function closeHUD() {
         &.to {
           color: #d3adf7;
           &.danger { color: #ff7875; }
-          &.critical { color: #ff4d4f; }
         }
       }
 
@@ -309,69 +477,132 @@ function closeHUD() {
       &.positive { color: #52c41a; }
       &.negative { color: #faad14; }
       &.critical { color: #ff4d4f; }
+      &.neutral { color: #6e87ab; }
     }
   }
 }
 
-.matrix-table-container {
-  overflow-x: auto;
+.phase-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
 
-  .matrix-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
+  .phase-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
 
-    th, td {
-      padding: 8px 10px;
-      border: 1px solid rgba(0, 210, 255, 0.2);
-      text-align: left;
-      line-height: 1.45;
-    }
-
-    th {
+    .col-head {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 6px 9px;
+      border-radius: 3px;
       background: rgba(14, 28, 48, 0.95);
-      color: #a2b7d4;
-      font-weight: 600;
+      border: 1px solid transparent;
 
-      .badge-phase {
-        display: block;
+      .badge {
         font-size: 11px;
         font-weight: 700;
-        margin-bottom: 2px;
-
-        &.hist { color: #00d2ff; }
-        &.pres { color: #52c41a; }
-        &.fut { color: #d3adf7; }
       }
 
-      .time-stamp {
+      .time-range {
         font-size: 10px;
         color: #6e87ab;
         font-family: var(--font-family-mono);
       }
+
+      &.history {
+        border-color: rgba(0, 210, 255, 0.4);
+        .badge { color: #00d2ff; }
+      }
+
+      &.present {
+        border-color: rgba(82, 196, 26, 0.4);
+        .badge { color: #52c41a; }
+      }
+
+      &.future {
+        border-color: rgba(211, 173, 247, 0.4);
+        .badge { color: #d3adf7; }
+      }
     }
 
-    td {
+    .slice-card {
+      padding: 6px 9px;
+      border-radius: 3px;
       background: rgba(10, 20, 36, 0.7);
-      color: #f0f6fc;
+      border: 1px solid rgba(0, 210, 255, 0.18);
+      cursor: pointer;
+      transition: all 0.15s;
 
-      &.dim-title {
-        color: #00d2ff;
-        font-weight: 600;
-        background: rgba(14, 28, 48, 0.85);
+      &:hover {
+        border-color: rgba(0, 210, 255, 0.55);
+        background: rgba(16, 32, 56, 0.85);
       }
 
-      &.highlight-present {
-        background: rgba(82, 196, 26, 0.08);
-        border-color: rgba(82, 196, 26, 0.35);
+      &.active {
+        border-color: #00d2ff;
+        background: rgba(0, 210, 255, 0.12);
+        box-shadow: 0 0 10px rgba(0, 210, 255, 0.35);
       }
 
-      &.highlight-future {
-        background: rgba(179, 127, 235, 0.08);
-        border-color: rgba(179, 127, 235, 0.35);
+      .row-main {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+
+        .s-time {
+          font-family: var(--font-family-mono);
+          font-size: 12px;
+          font-weight: 700;
+          color: #f0f6fc;
+        }
+
+        .s-label {
+          font-size: 11px;
+          color: #a2b7d4;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       }
+
+      .row-sub {
+        display: flex;
+        justify-content: space-between;
+        gap: 6px;
+        margin-top: 2px;
+        font-size: 10px;
+        color: #6e87ab;
+        font-family: var(--font-family-mono);
+      }
+
+      .row-remark {
+        margin-top: 3px;
+        font-size: 10px;
+        line-height: 1.4;
+        color: #8ba3c2;
+      }
+    }
+
+    .col-empty {
+      padding: 10px 9px;
+      font-size: 10px;
+      color: #4a5f7d;
+      text-align: center;
+      border: 1px dashed rgba(110, 135, 171, 0.3);
+      border-radius: 3px;
     }
   }
+}
+
+.hud-empty {
+  padding: 24px;
+  text-align: center;
+  font-size: 12px;
+  color: #6e87ab;
 }
 
 .hud-action-footer {
@@ -379,7 +610,7 @@ function closeHUD() {
   justify-content: space-between;
   align-items: center;
   border-top: 1px solid rgba(0, 210, 255, 0.25);
-  padding-top: 10px;
+  padding-top: 8px;
 
   .slice-jump-buttons {
     display: flex;

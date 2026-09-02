@@ -4,7 +4,7 @@
  */
 
 import * as Cesium from 'cesium'
-import type { SituationTarget, SpatialRelation, SituationRegion, BattlefieldEnvironment } from '@/types/situation'
+import type { SituationTarget, SpatialRelation, SituationRegion, BattlefieldEnvironment, TemporalPhase } from '@/types/situation'
 import { useSceneStore } from '@/stores/sceneStore'
 import { generateAttackArrowPoints } from '@/utils/militaryPlotting'
 
@@ -62,10 +62,12 @@ export class CesiumController {
     // 视觉、大气层与雾效优化
     globe.baseColor = Cesium.Color.fromCssColorString('#0b1424')
     scene.backgroundColor = Cesium.Color.fromCssColorString('#040811')
-    scene.sun.show = true
-    scene.moon.show = true
-    scene.skyAtmosphere.show = true
-    scene.skyAtmosphere.brightnessShift = 0.15
+    if (scene.sun) scene.sun.show = true
+    if (scene.moon) scene.moon.show = true
+    if (scene.skyAtmosphere) {
+      scene.skyAtmosphere.show = true
+      scene.skyAtmosphere.brightnessShift = 0.15
+    }
     scene.fog.enabled = true
     scene.fog.density = 0.0001
     globe.enableLighting = false
@@ -516,10 +518,10 @@ export class CesiumController {
       let relEntity = this.relationEntities.get(relId)
       let labelEntity = this.relationLabels.get(labelId)
 
-      // 判断两端实体及其关系特性是否均处于可见状态
+      // 判断两端实体及其关系特性是否均处于可见状态 (同时受专题树"战术关系网络"分支开关控制)
       const isSrcVisible = sceneStore.isTargetVisible(rel.sourceTargetId) && sceneStore.isFeatureVisible(rel.sourceTargetId, 'relation')
       const isDstVisible = sceneStore.isTargetVisible(rel.targetTargetId) && sceneStore.isFeatureVisible(rel.targetTargetId, 'relation')
-      const isRelVisible = isSrcVisible && isDstVisible
+      const isRelVisible = isSrcVisible && isDstVisible && sceneStore.isRelationVisible(rel.id)
 
       const start = Cesium.Cartesian3.fromDegrees(src.longitude, src.latitude, src.altitude)
       const end = Cesium.Cartesian3.fromDegrees(dst.longitude, dst.latitude, dst.altitude)
@@ -657,11 +659,11 @@ export class CesiumController {
     if (isEnvVisible && env.weatherType === 'rain_fog') {
       scene.fog.enabled = true
       scene.fog.density = 0.00035
-      scene.skyAtmosphere.brightnessShift = -0.1
+      if (scene.skyAtmosphere) scene.skyAtmosphere.brightnessShift = -0.1
     } else {
       scene.fog.enabled = true
       scene.fog.density = 0.00008
-      scene.skyAtmosphere.brightnessShift = 0.15
+      if (scene.skyAtmosphere) scene.skyAtmosphere.brightnessShift = 0.15
     }
   }
 
@@ -742,6 +744,7 @@ export class CesiumController {
    */
   public renderFutureTracks(targets: SituationTarget[], isVisible = true) {
     if (!this.viewer) return
+    const viewer = this.viewer
     const sceneStore = useSceneStore()
 
     targets.forEach((target) => {
@@ -772,7 +775,7 @@ export class CesiumController {
         : Cesium.Color.fromCssColorString('#faad14')
 
       if (!trackEntity) {
-        trackEntity = this.viewer.entities.add({
+        trackEntity = viewer.entities.add({
           id: futureId,
           show: true,
           polyline: {
@@ -795,7 +798,7 @@ export class CesiumController {
 
       // 未来预测预期交汇到达点幽灵标记 (Ghost Marker)
       if (!arrivalEntity) {
-        arrivalEntity = this.viewer.entities.add({
+        arrivalEntity = viewer.entities.add({
           id: arrivalPointId,
           show: true,
           position: lastPos,
@@ -911,169 +914,203 @@ export class CesiumController {
   }
 
   /**
-   * 渲染历史-当前-未来三态时空切片同屏对比（时序流光带 + 高度落差垂线 + 三态发光幽灵标牌）
+   * 渲染历史-当前-未来三态时空切片图层 (历史/现在/未来三个时间切面可独立显隐)
+   * 视觉层级：选中切片 (全量标牌+大点) > 时间轴当前相位切片 (单行标牌+中点) > 其他相位 (淡化小点)
    */
-  public renderTemporalSlices(targets: SituationTarget[], isVisible = true) {
+  public renderTemporalSlices(
+    targets: SituationTarget[],
+    options: {
+      visible: boolean
+      layers: Record<TemporalPhase, boolean>
+      activeSliceKey: { targetId: string; index: number } | null
+      activePhase: TemporalPhase
+    }
+  ) {
     if (!this.viewer) return
     const sceneStore = useSceneStore()
 
     targets.forEach((target) => {
       if (!target.temporalSlices || target.temporalSlices.length === 0) return
+      const slices = target.temporalSlices
+      const isTargetShow = options.visible && sceneStore.isTargetVisible(target.id)
 
-      const isTargetShow = isVisible && sceneStore.isTargetVisible(target.id)
-
-      // 1. 绘制历史与未来的时空位移流光连线 (Flow Ribbon)
-      const histPoints = target.temporalSlices
+      // 1. 趋势连线：历史青色流光带 (历史→当前) 与未来紫色虚线 (当前→未来)，随各自图层开关显隐
+      const histPoints = slices
         .filter((s) => s.phase === 'history' || s.phase === 'present')
         .map((s) => Cesium.Cartesian3.fromDegrees(s.longitude, s.latitude, s.altitude))
-
-      const futPoints = target.temporalSlices
+      const futPoints = slices
         .filter((s) => s.phase === 'present' || s.phase === 'future')
         .map((s) => Cesium.Cartesian3.fromDegrees(s.longitude, s.latitude, s.altitude))
 
-      const histLineId = `SLICE_FLOW_${target.id}_HIST`
-      const futLineId = `SLICE_FLOW_${target.id}_FUT`
+      this.upsertSliceFlowLine(`SLICE_FLOW_${target.id}_HIST`, isTargetShow && options.layers.history, histPoints, 'glow', '#00d2ff', 4)
+      this.upsertSliceFlowLine(`SLICE_FLOW_${target.id}_FUT`, isTargetShow && options.layers.future, futPoints, 'dash', '#b37feb', 4.5)
 
-      let histLineEntity = this.temporalSliceEntities.get(histLineId)
-      let futLineEntity = this.temporalSliceEntities.get(futLineId)
-
-      if (!isTargetShow) {
-        if (histLineEntity) histLineEntity.show = false
-        if (futLineEntity) futLineEntity.show = false
-      } else {
-        if (histPoints.length >= 2) {
-          if (!histLineEntity) {
-            histLineEntity = this.viewer.entities.add({
-              id: histLineId,
-              show: true,
-              polyline: {
-                positions: histPoints,
-                width: 4,
-                material: new Cesium.PolylineGlowMaterialProperty({
-                  glowPower: 0.35,
-                  color: Cesium.Color.fromCssColorString('#00d2ff')
-                }),
-                clampToGround: false
-              }
-            })
-            this.temporalSliceEntities.set(histLineId, histLineEntity)
-          } else {
-            histLineEntity.show = true
-            if (histLineEntity.polyline) {
-              histLineEntity.polyline.positions = new Cesium.ConstantProperty(histPoints)
-            }
-          }
-        }
-
-        if (futPoints.length >= 2) {
-          if (!futLineEntity) {
-            futLineEntity = this.viewer.entities.add({
-              id: futLineId,
-              show: true,
-              polyline: {
-                positions: futPoints,
-                width: 4.5,
-                material: new Cesium.PolylineDashMaterialProperty({
-                  color: Cesium.Color.fromCssColorString('#b37feb'),
-                  dashLength: 16
-                }),
-                clampToGround: false
-              }
-            })
-            this.temporalSliceEntities.set(futLineId, futLineEntity)
-          } else {
-            futLineEntity.show = true
-            if (futLineEntity.polyline) {
-              futLineEntity.polyline.positions = new Cesium.ConstantProperty(futPoints)
-            }
-          }
-        }
-      }
-
-      // 2. 绘制每一个时空切片的幽灵实体点位、高度垂线与多维属性标牌
-      target.temporalSlices.forEach((slice, idx) => {
-        const sliceId = `SLICE_${target.id}_${idx}`
-        const dropLineId = `SLICE_DROP_${target.id}_${idx}`
-
-        let sliceEntity = this.temporalSliceEntities.get(sliceId)
-        let dropLineEntity = this.temporalSliceEntities.get(dropLineId)
-
-        if (!isTargetShow) {
-          if (sliceEntity) sliceEntity.show = false
-          if (dropLineEntity) dropLineEntity.show = false
-          return
-        }
+      // 2. 每个切片的幽灵点位、高度垂线与瘦身标牌
+      slices.forEach((slice, idx) => {
+        const isActive = options.activeSliceKey?.targetId === target.id && options.activeSliceKey.index === idx
+        const isCurrentPhase = slice.phase === options.activePhase
+        const show = isTargetShow && options.layers[slice.phase]
 
         const airPos = Cesium.Cartesian3.fromDegrees(slice.longitude, slice.latitude, slice.altitude)
         const groundPos = Cesium.Cartesian3.fromDegrees(slice.longitude, slice.latitude, 0)
-
         const color = slice.phase === 'history'
           ? Cesium.Color.fromCssColorString('#00d2ff')
           : slice.phase === 'present'
           ? Cesium.Color.fromCssColorString('#52c41a')
           : Cesium.Color.fromCssColorString('#d3adf7')
 
-        const badgeTag = slice.phase === 'history' ? '⏱️【历史观测】' : slice.phase === 'present' ? '🟢【当前基准 T0】' : '🔮【未来预测推演】'
+        const badgeTag = slice.phase === 'history' ? '⏱️ 历史' : slice.phase === 'present' ? '🟢 当前' : '🔮 未来'
         const altStr = slice.altitude >= 1000 ? `${(slice.altitude / 1000).toFixed(1)}km` : `${slice.altitude}m`
+        const fullLabel = `${badgeTag} · ${slice.label} (${slice.time})\n高程: ${altStr} | 航速: ${slice.speedKnots}节 (${(slice.speedKnots / 661.47).toFixed(2)}M)\n${slice.remark}`
+        const shortLabel = `${badgeTag} · ${slice.time}`
 
-        // 垂直高度落差投影垂线 (直观呈现高空 ➔ 掠海突防的高度骤降)
-        if (slice.altitude > 100) {
-          if (!dropLineEntity) {
-            dropLineEntity = this.viewer!.entities.add({
-              id: dropLineId,
-              show: true,
-              polyline: {
-                positions: [airPos, groundPos],
-                width: 1.5,
-                material: new Cesium.PolylineDashMaterialProperty({
-                  color: color.withAlpha(0.6),
-                  dashLength: 8
-                }),
-                clampToGround: false
-              }
-            })
-            this.temporalSliceEntities.set(dropLineId, dropLineEntity)
-          } else {
-            dropLineEntity.show = true
-            if (dropLineEntity.polyline) {
-              dropLineEntity.polyline.positions = new Cesium.ConstantProperty([airPos, groundPos])
-            }
-          }
-        }
+        this.upsertSlicePoint(`SLICE_${target.id}_${idx}`, show, airPos, {
+          color: isActive || isCurrentPhase ? color : color.withAlpha(0.4),
+          pixelSize: isActive ? 17 : isCurrentPhase ? 13 : 7,
+          outlineWidth: isActive ? 3.5 : isCurrentPhase ? 2.5 : 1,
+          labelText: isActive ? fullLabel : shortLabel,
+          labelShow: isActive || isCurrentPhase,
+          labelOffsetY: isActive ? -42 : -26,
+          labelColor: color
+        })
 
-        // 时空切片点位与悬浮全息标牌
-        if (!sliceEntity) {
-          sliceEntity = this.viewer!.entities.add({
-            id: sliceId,
-            show: true,
-            position: airPos,
-            point: {
-              pixelSize: slice.phase === 'present' ? 16 : 11,
-              color: color,
-              outlineColor: Cesium.Color.WHITE,
-              outlineWidth: slice.phase === 'present' ? 3 : 1.5,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY
-            },
-            label: {
-              text: `${badgeTag} ${slice.label} (${slice.time})\n高程: ${altStr} | 航速: ${slice.speedKnots}节 (${(slice.speedKnots / 661.47).toFixed(2)}M)\n${slice.remark}`,
-              font: 'bold 12px sans-serif',
-              fillColor: color,
-              outlineColor: Cesium.Color.BLACK,
-              outlineWidth: 3,
-              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-              showBackground: true,
-              backgroundColor: Cesium.Color.fromCssColorString('rgba(8,16,32,0.94)'),
-              pixelOffset: new Cesium.Cartesian2(0, -36),
-              disableDepthTestDistance: Number.POSITIVE_INFINITY
-            }
-          })
-          this.temporalSliceEntities.set(sliceId, sliceEntity)
-        } else {
-          sliceEntity.show = true
-          sliceEntity.position = new Cesium.ConstantPositionProperty(airPos)
-        }
+        // 高度落差投影垂线 (直观呈现高空 ➔ 掠海的高度骤降，斜视视角下效果最佳)
+        this.upsertSliceDropLine(`SLICE_DROP_${target.id}_${idx}`, show && slice.altitude > 100, airPos, groundPos, color)
       })
     })
+  }
+
+  /** 三态切片趋势连线：按需创建/显隐/更新位置 (材质与颜色固定) */
+  private upsertSliceFlowLine(
+    id: string,
+    show: boolean,
+    positions: Cesium.Cartesian3[],
+    materialKind: 'glow' | 'dash',
+    cssColor: string,
+    width: number
+  ) {
+    let entity = this.temporalSliceEntities.get(id)
+    if (!show || positions.length < 2) {
+      if (entity) entity.show = false
+      return
+    }
+    if (!entity) {
+      entity = this.viewer!.entities.add({
+        id,
+        show: true,
+        polyline: {
+          positions,
+          width,
+          material:
+            materialKind === 'glow'
+              ? new Cesium.PolylineGlowMaterialProperty({
+                  glowPower: 0.35,
+                  color: Cesium.Color.fromCssColorString(cssColor)
+                })
+              : new Cesium.PolylineDashMaterialProperty({
+                  color: Cesium.Color.fromCssColorString(cssColor),
+                  dashLength: 16
+                }),
+          clampToGround: false
+        }
+      })
+      this.temporalSliceEntities.set(id, entity)
+    } else {
+      entity.show = true
+      if (entity.polyline) {
+        entity.polyline.positions = new Cesium.ConstantProperty(positions)
+      }
+    }
+  }
+
+  /** 三态切片点位与标牌：样式属性每次渲染全量刷新 (修复旧实现创建后永不更新的问题) */
+  private upsertSlicePoint(
+    id: string,
+    show: boolean,
+    position: Cesium.Cartesian3,
+    style: {
+      color: Cesium.Color
+      pixelSize: number
+      outlineWidth: number
+      labelText: string
+      labelShow: boolean
+      labelOffsetY: number
+      labelColor: Cesium.Color
+    }
+  ) {
+    let entity = this.temporalSliceEntities.get(id)
+    if (!entity) {
+      entity = this.viewer!.entities.add({
+        id,
+        show: show,
+        position,
+        point: {
+          pixelSize: style.pixelSize,
+          color: style.color,
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: style.outlineWidth,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        },
+        label: {
+          text: style.labelText,
+          font: 'bold 12px sans-serif',
+          fillColor: style.labelColor,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          showBackground: true,
+          backgroundColor: Cesium.Color.fromCssColorString('rgba(8,16,32,0.92)'),
+          show: style.labelShow,
+          pixelOffset: new Cesium.Cartesian2(0, style.labelOffsetY),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      })
+      this.temporalSliceEntities.set(id, entity)
+    } else {
+      entity.show = show
+      entity.position = new Cesium.ConstantPositionProperty(position)
+    }
+    if (entity.point) {
+      entity.point.pixelSize = new Cesium.ConstantProperty(style.pixelSize)
+      entity.point.color = new Cesium.ConstantProperty(style.color)
+      entity.point.outlineWidth = new Cesium.ConstantProperty(style.outlineWidth)
+    }
+    if (entity.label) {
+      entity.label.text = new Cesium.ConstantProperty(style.labelText)
+      entity.label.show = new Cesium.ConstantProperty(style.labelShow)
+      entity.label.fillColor = new Cesium.ConstantProperty(style.labelColor)
+      entity.label.pixelOffset = new Cesium.ConstantProperty(new Cesium.Cartesian2(0, style.labelOffsetY))
+    }
+  }
+
+  /** 三态切片高度垂线：按需创建/显隐/更新位置 (颜色固定) */
+  private upsertSliceDropLine(id: string, show: boolean, airPos: Cesium.Cartesian3, groundPos: Cesium.Cartesian3, color: Cesium.Color) {
+    let entity = this.temporalSliceEntities.get(id)
+    if (!show) {
+      if (entity) entity.show = false
+      return
+    }
+    if (!entity) {
+      entity = this.viewer!.entities.add({
+        id,
+        show: true,
+        polyline: {
+          positions: [airPos, groundPos],
+          width: 1.5,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: color.withAlpha(0.6),
+            dashLength: 8
+          }),
+          clampToGround: false
+        }
+      })
+      this.temporalSliceEntities.set(id, entity)
+    } else {
+      entity.show = true
+      if (entity.polyline) {
+        entity.polyline.positions = new Cesium.ConstantProperty([airPos, groundPos])
+      }
+    }
   }
 
   /**
@@ -1120,6 +1157,28 @@ export class CesiumController {
     this.temporalSliceEntities.clear()
     this.measureEntities = []
   }
+}
+
+/**
+ * 解析三态切片实体 ID (SLICE_{targetId}_{idx} / SLICE_DROP_{targetId}_{idx}) 为所属目标与切片序号。
+ * 趋势连线 (SLICE_FLOW_*) 与非切片实体返回 null。
+ */
+export function parseSliceEntityId(rawId: unknown): { targetId: string; index: number } | null {
+  if (typeof rawId !== 'string') return null
+  if (rawId.startsWith('SLICE_FLOW_')) return null
+  let rest: string
+  if (rawId.startsWith('SLICE_DROP_')) {
+    rest = rawId.slice('SLICE_DROP_'.length)
+  } else if (rawId.startsWith('SLICE_')) {
+    rest = rawId.slice('SLICE_'.length)
+  } else {
+    return null
+  }
+  const sepIdx = rest.lastIndexOf('_')
+  if (sepIdx <= 0) return null
+  const index = Number(rest.slice(sepIdx + 1))
+  if (!Number.isInteger(index) || index < 0) return null
+  return { targetId: rest.slice(0, sepIdx), index }
 }
 
 export const cesiumController = new CesiumController()

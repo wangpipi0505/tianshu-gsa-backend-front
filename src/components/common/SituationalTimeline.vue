@@ -222,11 +222,12 @@ function jumpToFutureEnd() {
 function onToggleTemporalSlices() {
   situationStore.toggleTemporalSlices()
   if (situationStore.showTemporalSlices) {
-    const target = situationStore.targets.find((t) => t.id === 'Target-001')
+    // 聚焦三态对比面板当前目标 (不再硬编码某个目标)
+    const target = situationStore.targets.find((t) => t.id === situationStore.activeSliceTargetId)
     if (target) {
-      cesiumController.focusTarget(target, 550000)
+      cesiumController.focusTarget(target, 650000)
     }
-    ElMessage.success('已开启三态时空切片对比！已展开全景对比透视面板并定位至海峡空域')
+    ElMessage.success('已开启三态时空切片对比：历史/当前/未来三个时间切面同屏，可在面板中独立开关各切面图层')
   } else {
     ElMessage.info('已关闭三态时空切片对比模式')
   }

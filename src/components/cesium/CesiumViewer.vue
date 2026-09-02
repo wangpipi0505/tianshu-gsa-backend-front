@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import * as Cesium from 'cesium'
-import { cesiumController, type BasemapType } from '@/utils/cesiumHelper'
+import { cesiumController, parseSliceEntityId, type BasemapType } from '@/utils/cesiumHelper'
 import { useSituationStore } from '@/stores/situationStore'
 import { useSceneStore } from '@/stores/sceneStore'
 import { useAgentStore } from '@/stores/agentStore'
@@ -71,29 +71,30 @@ function onOpenDrawer(targetId: string) {
  * 严格精准拾取：仅当鼠标精准命中目标本体图标 (Point/Billboard) 或实体文字标牌 (Label) 时才返回 ID
  * 雷达探测球 (RADAR_CONE_*)、战术关系连线 (REL_*)、航迹线 (TRACK_*) 与战区多边形 (REG_*) 100% 穿透不触发点击
  */
-function extractTargetIdFromPosition(position: Cesium.Cartesian2, scene: Cesium.Scene): string | null {
+/** drillPick 穿透透明层（如雷达覆盖球），返回射线下第一个实体的原始 ID */
+function pickRawEntityId(position: Cesium.Cartesian2, scene: Cesium.Scene): string | null {
   if (!position || !scene) return null
-
-  // 使用 drillPick 穿透透明层（如雷达覆盖球），检查射线下方是否存在目标核心实体
   const pickedObjects = scene.drillPick(position, 10)
-  if (pickedObjects && pickedObjects.length > 0) {
-    for (const picked of pickedObjects) {
-      if (!picked || !picked.id) continue
+  for (const picked of pickedObjects || []) {
+    if (!picked || !picked.id) continue
+    if (typeof picked.id === 'string') return picked.id
+    if (picked.id.id && typeof picked.id.id === 'string') return picked.id.id
+  }
+  return null
+}
 
-      let rawId = ''
-      if (typeof picked.id === 'string') {
-        rawId = picked.id
-      } else if (picked.id.id && typeof picked.id.id === 'string') {
-        rawId = picked.id.id
-      }
+/**
+ * 严格精准拾取：仅当鼠标精准命中目标本体图标 (Point/Billboard) 或实体文字标牌 (Label) 时才返回 ID
+ * 雷达探测球 (RADAR_CONE_*)、战术关系连线 (REL_*)、航迹线 (TRACK_*) 与战区多边形 (REG_*) 100% 穿透不触发点击
+ * 三态切片点位 (SLICE_*) 由单击处理中通过 parseSliceEntityId 优先解析
+ */
+function extractTargetIdFromPosition(position: Cesium.Cartesian2, scene: Cesium.Scene): string | null {
+  const rawId = pickRawEntityId(position, scene)
+  if (!rawId) return null
 
-      if (!rawId) continue
-
-      // 严格白名单：仅当命中目标本体实体 ID (Target-001, Target-ME-001 等) 时才判定为点击目标
-      if (situationStore.targets.some((t) => t.id === rawId)) {
-        return rawId
-      }
-    }
+  // 严格白名单：仅当命中目标本体实体 ID (Target-001, Target-ME-001 等) 时才判定为点击目标
+  if (situationStore.targets.some((t) => t.id === rawId)) {
+    return rawId
   }
 
   return null
@@ -114,18 +115,22 @@ function updateCesiumScene() {
   cesiumController.renderEnvironment(
     situationStore.environment
   )
+  // 三态切片图层：三个时间切面独立显隐，时间轴当前相位切片点亮
+  cesiumController.renderTemporalSlices(situationStore.targets, {
+    visible: situationStore.showTemporalSlices,
+    layers: { ...situationStore.sliceLayers },
+    activeSliceKey: situationStore.activeSliceKey,
+    activePhase: situationStore.currentTemporalPhase
+  })
+  // 三态模式下隐藏未来光轨与未来分支，避免三种"未来"语义叠画
   cesiumController.renderFutureTracks(
     situationStore.targets,
-    situationStore.showFutureTracks
+    situationStore.showFutureTracks && !situationStore.showTemporalSlices
   )
   cesiumController.renderFutureBranches(
     situationStore.targets,
-    situationStore.showFutureBranches,
+    situationStore.showFutureBranches && !situationStore.showTemporalSlices,
     situationStore.selectedFutureBranchId
-  )
-  cesiumController.renderTemporalSlices(
-    situationStore.targets,
-    situationStore.showTemporalSlices
   )
 }
 
@@ -139,12 +144,27 @@ onMounted(() => {
 
   const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
 
-  // 单击：仅在鼠标精准点击到目标实体图标时切换打开/关闭悬浮标牌 (点击空白海面/雷达阴影区域完全穿透，零误弹)
+  // 单击：优先命中三态切片点 (选中切片+时间轴联动+斜视飞行)，其次命中目标本体图标时切换悬浮标牌
+  // (点击空白海面/雷达阴影区域完全穿透，零误弹)
   handler.setInputAction((movement: any) => {
-    const targetId = extractTargetIdFromPosition(movement.position, viewer.scene)
-    if (targetId) {
-      situationStore.toggleTargetPopup(targetId)
-      emit('select-target', targetId)
+    const rawId = pickRawEntityId(movement.position, viewer.scene)
+    if (!rawId) return
+
+    const sliceInfo = parseSliceEntityId(rawId)
+    if (sliceInfo) {
+      const target = situationStore.targets.find((t) => t.id === sliceInfo.targetId)
+      const slice = target?.temporalSlices?.[sliceInfo.index]
+      if (target && slice) {
+        situationStore.selectTemporalSlice(sliceInfo.targetId, sliceInfo.index)
+        situationStore.seekTime(situationStore.getSliceFullTime(slice))
+        cesiumController.flyToLocation(slice.longitude, slice.latitude, 450000, 0, -45)
+      }
+      return
+    }
+
+    if (situationStore.targets.some((t) => t.id === rawId)) {
+      situationStore.toggleTargetPopup(rawId)
+      emit('select-target', rawId)
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
@@ -172,9 +192,11 @@ watch(
     situationStore.regions,
     situationStore.environment,
     situationStore.showWeatherEffect,
-    situationStore.showFutureTracks,
-    situationStore.showFutureBranches,
     situationStore.showTemporalSlices,
+    situationStore.showFutureBranches,
+    situationStore.showFutureTracks,
+    situationStore.sliceLayers,
+    situationStore.activeSliceKey,
     situationStore.selectedFutureBranchId,
     situationStore.currentPlaybackTime,
     sceneStore.contentLayers,

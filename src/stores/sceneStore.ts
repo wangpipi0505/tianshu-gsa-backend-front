@@ -14,6 +14,7 @@ import type {
 } from '@/types/scene'
 import { fetchSceneDetail, fetchScenes, saveSceneLayers, saveThematicPackages, updateScene } from '@/api/scene'
 import { USE_MOCK, cloneMock } from '@/config/dataSource'
+import { useSituationStore } from '@/stores/situationStore'
 import {
   MOCK_BOOKMARKS,
   MOCK_CONTENT_LAYERS,
@@ -185,8 +186,21 @@ export const useSceneStore = defineStore('scene', () => {
     return false
   }
 
-  /** 判断推演工作项是否可见 */
+  /** 判断战术关系链路是否可见 (专题树"战术对抗与协同网络"分支的开关) */
+  function isRelationVisible(relationId: string): boolean {
+    for (const pkg of thematicPackages.value) {
+      const rel = pkg.relations.find((r) => r.id === relationId)
+      if (rel) return !!pkg.visible && rel.visible
+    }
+    return true
+  }
+
+  /** 判断推演工作项是否可见 (实体树 LAYER-WORK 与专题树"推演成果"分支共同判定) */
   function isWorkItemVisible(workItemId: string): boolean {
+    for (const pkg of thematicPackages.value) {
+      const w = pkg.workItems?.find((item) => item.id === workItemId)
+      if (w) return !!pkg.visible && w.visible
+    }
     const workTier = contentLayers.value.find((l) => l.id === 'LAYER-WORK')
     if (!workTier || !workTier.visible) return false
 
@@ -276,73 +290,91 @@ export const useSceneStore = defineStore('scene', () => {
     })
   }
 
-  /** 动态沉淀挂载新的态势研判专题成果包 */
+  /** 动态沉淀挂载新的态势研判专题成果包 (重复发布同一专题时更新而非跳过) */
   function addThematicAsset(asset: {
     id: string
     name: string
     regionId: string
     theme: string
     targetName: string
+    targetId?: string
     conclusion: string
   }) {
     const pkgId = `THM-PKG-${asset.id}`
     const existing = thematicPackages.value.find((p) => p.id === pkgId)
 
-    if (!existing) {
-      const newPkg: ThematicPackage = {
-        id: pkgId,
-        name: `【分析成果】${asset.name}`,
-        theme: asset.theme,
-        theater: 'custom',
-        visible: true,
-        expanded: true,
-        opacity: 85,
-        color: '#ff4d4f',
-        centerCoords: [123.10, 24.90],
-        cameraAltitude: 550000,
-        targetsExpanded: true,
-        targetsVisible: true,
-        regionsExpanded: true,
-        regionsVisible: true,
-        relationsExpanded: true,
-        relationsVisible: true,
-        workItemsExpanded: true,
-        workItemsVisible: true,
-        targets: [
-          {
-            id: 'Target-001',
-            name: asset.targetName,
-            callsign: 'VIPER-01',
-            color: '#ff4d4f',
-            visible: true,
-            expanded: false,
-            features: [
-              { id: 'F-001-POS', name: '目标实体点位', featureKey: 'position', visible: true },
-              { id: 'F-001-TRACK', name: '异常机动轨迹航线', featureKey: 'track', visible: true },
-              { id: 'F-001-RADAR', name: '相控阵雷达扫描锥 (180km)', featureKey: 'radar', visible: true }
-            ]
-          }
-        ],
-        regions: [
-          {
-            id: asset.regionId,
-            name: `3D 异常机动徘徊管制包络体 (${asset.targetName})`,
-            color: '#ff4d4f',
-            visible: true
-          }
-        ],
-        relations: [],
-        workItems: [
-          {
-            id: 'SIM-HYPO-001',
-            name: '【推演假设】低空超音速突防航线假说',
-            color: '#b37feb',
-            visible: true
-          }
-        ]
+    if (existing) {
+      existing.name = `【分析成果】${asset.name}`
+      existing.theme = asset.theme
+      if (asset.regionId && !existing.regions.some((r) => r.id === asset.regionId)) {
+        existing.regions.push({
+          id: asset.regionId,
+          name: `3D 异常机动徘徊管制包络体 (${asset.targetName})`,
+          color: '#ff4d4f',
+          visible: true
+        })
+        existing.regionsVisible = true
       }
-      thematicPackages.value.unshift(newPkg)
+      return
     }
+
+    const targetId = asset.targetId || 'Target-001'
+    const situation = useSituationStore()
+    const situationTarget = situation.targets.find((t) => t.id === targetId)
+
+    const newPkg: ThematicPackage = {
+      id: pkgId,
+      name: `【分析成果】${asset.name}`,
+      theme: asset.theme,
+      theater: 'custom',
+      visible: true,
+      expanded: true,
+      opacity: 85,
+      color: '#ff4d4f',
+      centerCoords: situationTarget ? [situationTarget.longitude, situationTarget.latitude] : [123.1, 24.9],
+      cameraAltitude: 550000,
+      targetsExpanded: true,
+      targetsVisible: true,
+      regionsExpanded: true,
+      regionsVisible: true,
+      relationsExpanded: true,
+      relationsVisible: true,
+      workItemsExpanded: true,
+      workItemsVisible: true,
+      targets: [
+        {
+          id: targetId,
+          name: asset.targetName,
+          callsign: situationTarget?.callsign || '',
+          color: '#ff4d4f',
+          visible: true,
+          expanded: false,
+          features: [
+            { id: `F-${targetId}-POS`, name: '目标实体点位', featureKey: 'position', visible: true },
+            { id: `F-${targetId}-TRACK`, name: '异常机动轨迹航线', featureKey: 'track', visible: true },
+            { id: `F-${targetId}-RADAR`, name: '相控阵雷达扫描锥', featureKey: 'radar', visible: true }
+          ]
+        }
+      ],
+      regions: [
+        {
+          id: asset.regionId,
+          name: `3D 异常机动徘徊管制包络体 (${asset.targetName})`,
+          color: '#ff4d4f',
+          visible: true
+        }
+      ],
+      relations: [],
+      workItems: [
+        {
+          id: 'SIM-HYPO-001',
+          name: '【推演假设】低空超音速突防航线假说',
+          color: '#b37feb',
+          visible: true
+        }
+      ]
+    }
+    thematicPackages.value.unshift(newPkg)
   }
 
   /** 一键清空三维地球上的全部态势图层与要素 (除基础底图外) */
@@ -466,6 +498,7 @@ export const useSceneStore = defineStore('scene', () => {
     isTargetVisible,
     isFeatureVisible,
     isRegionVisible,
+    isRelationVisible,
     isWorkItemVisible,
     isEnvironmentVisible,
     toggleThematicPackage,

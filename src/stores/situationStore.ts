@@ -13,7 +13,9 @@ import type {
   BattlefieldEnvironment,
   ComprehensiveAssessment,
   EvidenceItem,
-  TemporalMode
+  TemporalMode,
+  TemporalPhase,
+  TemporalSlice
 } from '@/types/situation'
 import { fetchSituationSnapshot, resolveTargetConflict } from '@/api/situation'
 import { USE_MOCK, cloneMock } from '@/config/dataSource'
@@ -84,6 +86,16 @@ export const useSituationStore = defineStore('situation', () => {
   const showTemporalSlices = ref<boolean>(false)
   const showFutureBranches = ref<boolean>(false)
   const selectedFutureBranchId = ref<string>('BRANCH-VIPER-A')
+
+  // 三态切片图层独立显隐 (历史/现在/未来三个时间切面可单独开关组合)
+  const sliceLayers = ref<Record<TemporalPhase, boolean>>({
+    history: true,
+    present: true,
+    future: true
+  })
+  // 三态对比面板当前聚焦的目标与高亮切片
+  const activeSliceTargetId = ref<string>('')
+  const activeSliceKey = ref<{ targetId: string; index: number } | null>(null)
 
   // 当前播放时间所处的时空阶段
   const currentTemporalPhase = computed<'history' | 'present' | 'future'>(() => {
@@ -287,6 +299,9 @@ export const useSituationStore = defineStore('situation', () => {
     evidences.value = cloneMock(MOCK_EVIDENCE_ITEMS)
     environment.value = cloneMock(MOCK_ENVIRONMENT)
     activeAssessment.value = cloneMock(MOCK_PRIMARY_ASSESSMENT)
+    activeSliceKey.value = null
+    activeSliceTargetId.value = ''
+    ensureActiveSliceTarget()
   }
 
   async function loadSnapshot(productVersion?: string) {
@@ -304,6 +319,8 @@ export const useSituationStore = defineStore('situation', () => {
     if (snapshot.assessment) activeAssessment.value = snapshot.assessment
     productVersionId.value = snapshot.productVersionId || ''
     assetVersionId.value = snapshot.assetVersionId || ''
+    activeSliceKey.value = null
+    ensureActiveSliceTarget()
   }
 
   // 联动交互 1：执行多源融合消除冲突并更新态势轨迹
@@ -326,10 +343,16 @@ export const useSituationStore = defineStore('situation', () => {
     }
   }
 
-  // 联动交互 2：注入红蓝突防推演假设航线至三维地球 (紫色虚线)
-  function injectSimulationHypothesis(simId = 'SIM-HYPO-001') {
+  // 联动交互 2：注入红蓝突防推演假设航线至三维地球 (紫色虚线)，高度/航速按推演参数生成
+  function injectSimulationHypothesis(
+    simId = 'SIM-HYPO-001',
+    options?: { targetAltitudeM?: number; machSpeed?: number }
+  ) {
     const existing = targets.value.find((t) => t.id === simId)
     if (!existing) {
+      // 航线高度/航速按推演输入参数生成，保证"改参数 → 上图航线变化"
+      const penetrationAlt = Math.max(80, Math.round(options?.targetAltitudeM ?? 300))
+      const knots = Math.round((options?.machSpeed ?? 1.4) * 661.47)
       const hypoTarget: SituationTarget = {
         id: simId,
         codeName: '【推演假设】Target-001低空突防航线',
@@ -341,13 +364,13 @@ export const useSituationStore = defineStore('situation', () => {
         longitude: 121.85,
         latitude: 24.65,
         altitude: 8500,
-        speedKnots: 920,
+        speedKnots: knots,
         headingDeg: 245,
         tracks: [
           { longitude: 121.85, latitude: 24.65, altitude: 8500, timestamp: '2026-08-25 15:20:00' },
-          { longitude: 121.2, latitude: 24.2, altitude: 3500, timestamp: '2026-08-25 15:25:00' },
-          { longitude: 120.6, latitude: 23.7, altitude: 500, timestamp: '2026-08-25 15:30:00' },
-          { longitude: 119.8, latitude: 23.1, altitude: 150, timestamp: '2026-08-25 15:35:00' }
+          { longitude: 121.2, latitude: 24.2, altitude: Math.round((8500 + penetrationAlt) / 2), timestamp: '2026-08-25 15:25:00' },
+          { longitude: 120.6, latitude: 23.7, altitude: penetrationAlt, timestamp: '2026-08-25 15:30:00' },
+          { longitude: 119.8, latitude: 23.1, altitude: Math.max(penetrationAlt - 150, 80), timestamp: '2026-08-25 15:35:00' }
         ],
         opticalFeatures: { lengthMeters: 19.2, wingspanMeters: 14.1, hasDualTail: true, confidence: 0.95 },
         radarFeatures: { rcsMeanSqMeters: 2.8, dopplerShiftHz: 1250, frequencyBand: 'X波段', pulseWidthUs: 12 },
@@ -367,12 +390,7 @@ export const useSituationStore = defineStore('situation', () => {
     }
   }
 
-  // 联动交互 4：开启/拓展威胁走廊与防空包络
-  function toggleThreatCorridor(show: boolean) {
-    const threatRegion = regions.value.find((r) => r.id === 'REG-001')
-  }
-
-  // 联动交互 5：气象环境影响与传感器融合误差补偿
+  // 联动交互 4：气象环境影响与传感器融合误差补偿
   function applyWeatherCompensation() {
     environment.value.radarAttenuationDbKm = 1.1
     environment.value.opticalAttenuationPercent = 15
@@ -380,12 +398,17 @@ export const useSituationStore = defineStore('situation', () => {
     environment.value.seaStateDesc = '环境误差已由智能中台完成动态加权补偿'
   }
 
+  /** 还原战场环境为基准值 (用于撤销气象补偿) */
+  function resetEnvironment() {
+    environment.value = cloneMock(MOCK_ENVIRONMENT)
+  }
+
   // 联动交互 6：时空演化研判模式控制
   function setTemporalMode(mode: TemporalMode) {
     temporalMode.value = mode
     if (mode === 'slices') {
-      showTemporalSlices.value = true
       showFutureBranches.value = false
+      enterSlicesMode()
     } else if (mode === 'branches') {
       showFutureBranches.value = true
       showTemporalSlices.value = false
@@ -399,12 +422,51 @@ export const useSituationStore = defineStore('situation', () => {
     showFutureTracks.value = val !== undefined ? val : !showFutureTracks.value
   }
 
+  // 进入三态切片模式：总开关打开、三个时间切面图层全开、聚焦目标兜底
+  function enterSlicesMode() {
+    temporalMode.value = 'slices'
+    showTemporalSlices.value = true
+    sliceLayers.value = { history: true, present: true, future: true }
+    ensureActiveSliceTarget()
+  }
+
+  function ensureActiveSliceTarget() {
+    const valid = targets.value.some((t) => t.id === activeSliceTargetId.value && t.temporalSlices?.length)
+    if (!valid) {
+      activeSliceTargetId.value = targets.value.find((t) => t.temporalSlices?.length)?.id || ''
+    }
+  }
+
+  // 用当前基准锚点的日期补全切片时间 (切片数据仅带 HH:mm:ss)
+  function getSliceFullTime(slice: Pick<TemporalSlice, 'time'>) {
+    return `${presentAnchorTime.split(' ')[0]} ${slice.time}`
+  }
+
+  function setSliceLayer(phase: TemporalPhase, visible: boolean) {
+    sliceLayers.value = { ...sliceLayers.value, [phase]: visible }
+  }
+
+  // 选中某目标的一个切片点：面板聚焦与目标选中态联动 (不自动弹起抽屉与标牌)
+  function selectTemporalSlice(targetId: string, index: number) {
+    const target = targets.value.find((t) => t.id === targetId)
+    if (!target?.temporalSlices?.[index]) return
+    activeSliceKey.value = { targetId, index }
+    activeSliceTargetId.value = targetId
+    selectedTargetId.value = targetId
+    if (!showTemporalSlices.value) {
+      enterSlicesMode()
+    }
+  }
+
   function toggleTemporalSlices(val?: boolean) {
     showTemporalSlices.value = val !== undefined ? val : !showTemporalSlices.value
     if (showTemporalSlices.value) {
-      temporalMode.value = 'slices'
-    } else if (temporalMode.value === 'slices') {
-      temporalMode.value = 'playback'
+      enterSlicesMode()
+    } else {
+      if (temporalMode.value === 'slices') {
+        temporalMode.value = 'playback'
+      }
+      activeSliceKey.value = null
     }
   }
 
@@ -462,6 +524,9 @@ export const useSituationStore = defineStore('situation', () => {
     showTemporalSlices,
     showFutureBranches,
     selectedFutureBranchId,
+    sliceLayers,
+    activeSliceTargetId,
+    activeSliceKey,
     isPlaying,
     playbackSpeed,
     selectedTarget,
@@ -483,14 +548,17 @@ export const useSituationStore = defineStore('situation', () => {
     toggleTemporalSlices,
     toggleFutureBranches,
     selectFutureBranch,
+    setSliceLayer,
+    selectTemporalSlice,
+    getSliceFullTime,
     resetToPresent,
     applyMock,
     loadSnapshot,
     mergeTargetConflict,
     injectSimulationHypothesis,
     removeSimulationHypothesis,
-    toggleThreatCorridor,
     applyWeatherCompensation,
+    resetEnvironment,
     addThematicRegion
   }
 })

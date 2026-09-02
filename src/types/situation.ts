@@ -114,9 +114,12 @@ export interface FutureBranch {
   threatDescription: string
 }
 
+/** 三态切片的时相：历史观测 / 当前基准 / 未来预测 */
+export type TemporalPhase = 'history' | 'present' | 'future'
+
 /** 历史-当前-未来三态时空切片点位 */
 export interface TemporalSlice {
-  phase: 'history' | 'present' | 'future'
+  phase: TemporalPhase
   time: string
   label: string
   longitude: number
@@ -154,6 +157,8 @@ export interface SituationRegion {
   color: string
   opacity: number
   description: string
+  /** 专题研判成果扩展属性 (威胁等级、研判结论等) */
+  thematicAttributes?: Record<string, unknown>
 }
 
 /** 战场气象与海洋水文环境状态 */
@@ -189,12 +194,19 @@ export interface SituationEvent {
 /** 证据链溯源项 */
 export interface EvidenceItem {
   id: string
+  code?: string
   title: string
   sourceType: string
   datasetVersion: string
   recordedTime: string
   confidenceScore: number
   payloadSummary: string
+  /** 以下为可选扩展：证据溯源与数据集关联 */
+  category?: string
+  sourceDatasetId?: string
+  sourceDatasetName?: string
+  rawRecordId?: string
+  rawPayloadSnippet?: Record<string, unknown>
 }
 
 /** 态势综合研判结论 */
