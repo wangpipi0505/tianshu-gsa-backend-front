@@ -95,8 +95,13 @@ async function onPublish() {
     ElMessage.warning('没有可发布的融合工作')
     return
   }
-  const result = await fusionStore.publishJob(jobId)
-  ElMessage.success(`已发布资产版本 ${result.assetVersion.versionId}，数据产品 ${result.productVersion.releaseVersion}（含 ${result.assetVersion.assetCount.targets} 个作战实体快照）`)
+  try {
+    const result = await fusionStore.publishJob(jobId)
+    ElMessage.success(`已发布资产版本 ${result.assetVersion.versionId}，数据产品 ${result.productVersion.releaseVersion}（含 ${result.assetVersion.assetCount.targets} 个作战实体快照）`)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    ElMessage.error(`发布失败：${message}`)
+  }
 }
 </script>
 
@@ -144,11 +149,16 @@ async function onPublish() {
 
 .fusion-content-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0,1fr) 防止表格等内容把网格列撑到视口之外（发布按钮横向不可达） */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
 
+  > * {
+    min-width: 0;
+  }
+
   @media (max-width: 1280px) {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
