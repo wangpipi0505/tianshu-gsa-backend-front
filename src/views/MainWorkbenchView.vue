@@ -210,10 +210,6 @@ defineExpose({
       left: 16px;
       bottom: 106px;
       z-index: 15;
-
-      &.agent-open {
-        left: calc(clamp(340px, 25vw, 440px) + 26px);
-      }
     }
 
     .workbench-bottom-timeline {

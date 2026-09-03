@@ -23,15 +23,15 @@
             <el-tag size="small" type="success">{{ row.qualityScore }} 分</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="时空覆盖范围" min-width="220">
+        <el-table-column label="时空覆盖范围" min-width="200">
           <template #default="{ row }">
             <div class="coverage-cell">
-              <div>{{ row.spatialCoverage }}</div>
-              <div class="time-sub">{{ row.timeCoverage[0] }} ~ {{ row.timeCoverage[1] }}</div>
+              <div class="cov-line">{{ row.spatialCoverage }}</div>
+              <div class="time-sub cov-line">{{ row.timeCoverage[0] }} ~ {{ row.timeCoverage[1] }}</div>
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="90">
           <template #default="{ row }">
             <el-button size="small" text type="primary" @click="previewDataset(row)">数据记录</el-button>
           </template>
@@ -270,13 +270,19 @@ function locateOnGlobe() {
 
 <style scoped lang="scss">
 .dataset-registry-panel {
+  height: 100%;
+  min-height: 0;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: hidden;
 }
 
 .dataset-table-box {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   background: rgba(10, 18, 32, 0.5);
   border-radius: 4px;
 }
@@ -284,6 +290,11 @@ function locateOnGlobe() {
 .coverage-cell {
   font-size: 12px;
   line-height: 1.4;
+  .cov-line {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .time-sub {
     color: #6e87ab;
     font-size: 11px;

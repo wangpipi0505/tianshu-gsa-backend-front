@@ -322,12 +322,12 @@ async function onPublish() {
 <style scoped lang="scss">
 .data-fusion-view {
   height: calc(100vh - 56px);
-  overflow-y: auto;
   padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   background: var(--bg-primary);
+  overflow: hidden;
 }
 
 .view-header {
@@ -363,12 +363,15 @@ async function onPublish() {
 
 .fusion-content-grid {
   display: grid;
-  /* minmax(0,1fr) 防止表格等内容把网格列撑到视口之外（发布按钮横向不可达） */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  /* 左列加宽保证数据集表格完整可见；minmax(0,*) 防止内容把网格列撑出视口 */
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   gap: 18px;
+  flex: 1;
+  min-height: 0;
 
   > * {
     min-width: 0;
+    min-height: 0;
   }
 
   @media (max-width: 1280px) {
@@ -377,6 +380,9 @@ async function onPublish() {
 }
 
 .fusion-workflow-card {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
   padding: 14px;
   display: flex;
   flex-direction: column;
