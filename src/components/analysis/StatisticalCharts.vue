@@ -13,6 +13,26 @@
         <el-radio-button value="work_only">仅标绘推演内容</el-radio-button>
         <el-radio-button value="source_compare">按来源分类对比</el-radio-button>
       </el-radio-group>
+      <span class="scope-label">计数口径:</span>
+      <el-radio-group
+        :model-value="analysisStore.countMode"
+        size="small"
+        @change="(v: any) => { analysisStore.setCountMode(v); ElMessage.success('计数口径已切换，图表已重算') }"
+      >
+        <el-radio-button value="unified_object">按统一对象计数</el-radio-button>
+        <el-radio-button value="source_record">按来源记录计数</el-radio-button>
+      </el-radio-group>
+      <span class="scope-label">空间聚合:</span>
+      <el-radio-group
+        :model-value="analysisStore.spatialAgg"
+        size="small"
+        @change="(v: any) => { analysisStore.setSpatialAgg(v); ElMessage.success('空间聚合方式已切换') }"
+      >
+        <el-radio-button value="grid">网格</el-radio-button>
+        <el-radio-button value="admin">行政区划</el-radio-button>
+        <el-radio-button value="user_rect">用户圈选</el-radio-button>
+      </el-radio-group>
+      <el-button size="small" type="primary" plain @click="projectOverlay">上图当前聚合</el-button>
     </div>
 
     <!-- 图表网格 -->
@@ -21,7 +41,7 @@
       <div class="chart-card tactical-panel">
         <div class="tactical-panel-header">
           <span>目标类型构成分布</span>
-          <span class="total-tag">共 {{ analysisStore.statisticalResult.totalCount }} 目标</span>
+          <span class="total-tag">共 {{ analysisStore.statisticalResult.totalCount }}（{{ analysisStore.countMode === 'source_record' ? '来源记录' : '统一对象' }}）</span>
         </div>
         <div ref="pieChartRef" class="chart-dom"></div>
       </div>
@@ -54,6 +74,7 @@ import * as echarts from 'echarts'
 import { useAnalysisStore } from '@/stores/analysisStore'
 import { useSituationStore } from '@/stores/situationStore'
 import { useSceneStore } from '@/stores/sceneStore'
+import { useIdentityStore } from '@/stores/identityStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import { ElMessage } from 'element-plus'
 
@@ -61,6 +82,7 @@ const router = useRouter()
 const analysisStore = useAnalysisStore()
 const situationStore = useSituationStore()
 const sceneStore = useSceneStore()
+const identityStore = useIdentityStore()
 
 const pieChartRef = ref<HTMLDivElement | null>(null)
 const lineChartRef = ref<HTMLDivElement | null>(null)
@@ -212,10 +234,18 @@ function initCharts() {
 
 // 口径切换/数据重算后图表实时重绘
 watch(() => analysisStore.statisticalResult, renderCharts, { deep: true })
+watch(() => identityStore.clearance, () => { void analysisStore.compute() })
 
 function onScopeChange(val: any) {
   analysisStore.setSourceScope(val)
   ElMessage.success('分析口径已切换，统计结果已按新口径重算')
+}
+
+function projectOverlay() {
+  const caption = `${analysisStore.countMode === 'source_record' ? '来源记录' : '统一对象'} / ${analysisStore.spatialAgg} / ${situationStore.currentPlaybackTime}`
+  cesiumController.renderAnalysisOverlay(analysisStore.statisticalResult.spatialGrids, analysisStore.spatialAgg, caption)
+  router.push('/workbench')
+  ElMessage.success('聚合结果已上图，口径标识已标注于图元')
 }
 
 function handleResize() {
@@ -248,7 +278,8 @@ onUnmounted(() => {
   padding: 10px 14px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
 
   .scope-label {
     font-size: 13px;

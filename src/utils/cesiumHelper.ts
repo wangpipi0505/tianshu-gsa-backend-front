@@ -10,7 +10,7 @@ import { useSituationStore } from '@/stores/situationStore'
 import { generateAttackArrowPoints } from '@/utils/militaryPlotting'
 import type { WorkContent } from '@/types/scene'
 
-export type BasemapType = 'satellite' | 'dark' | 'street'
+export type BasemapType = 'satellite' | 'dark' | 'street' | 'hillshade' | 'imagery_anno'
 
 export class CesiumController {
   public viewer: Cesium.Viewer | null = null
@@ -30,6 +30,7 @@ export class CesiumController {
   private plotEntities: Map<string, Cesium.Entity> = new Map()
   private clusterEntities: Map<string, Cesium.Entity> = new Map()
   private highlightEntities: Map<string, Cesium.Entity> = new Map()
+  private analysisOverlayEntities: Map<string, Cesium.Entity> = new Map()
 
   private activeHandler: Cesium.ScreenSpaceEventHandler | null = null
   private currentBasemap: BasemapType = 'satellite'
@@ -137,6 +138,23 @@ export class CesiumController {
           maximumLevel: 19
         })
         layers.addImageryProvider(provider)
+      } else if (type === 'hillshade') {
+        const provider = new Cesium.UrlTemplateImageryProvider({
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}',
+          maximumLevel: 16
+        })
+        layers.addImageryProvider(provider)
+      } else if (type === 'imagery_anno') {
+        const imagery = new Cesium.UrlTemplateImageryProvider({
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          maximumLevel: 19
+        })
+        const anno = new Cesium.UrlTemplateImageryProvider({
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+          maximumLevel: 16
+        })
+        layers.addImageryProvider(imagery)
+        layers.addImageryProvider(anno)
       }
     } catch (e) {
       console.warn('底图加载异常', e)
@@ -1511,6 +1529,47 @@ export class CesiumController {
         }
       })
       this.clusterEntities.set(cid, entity)
+    })
+  }
+
+  public renderAnalysisOverlay(
+    grids: Array<{ gridId: string; center: [number, number]; count: number; densityLevel: string; label?: string }>,
+    mode: 'grid' | 'admin' | 'user_rect',
+    caption: string
+  ) {
+    if (!this.viewer) return
+    this.analysisOverlayEntities.forEach((e) => this.viewer!.entities.remove(e))
+    this.analysisOverlayEntities.clear()
+    grids.forEach((g) => {
+      const color =
+        g.densityLevel === '高'
+          ? Cesium.Color.fromCssColorString('#ff4d4f').withAlpha(0.35)
+          : g.densityLevel === '中'
+            ? Cesium.Color.fromCssColorString('#faad14').withAlpha(0.3)
+            : Cesium.Color.fromCssColorString('#00d2ff').withAlpha(0.22)
+      const size = mode === 'grid' ? 55000 : mode === 'admin' ? 120000 : 90000
+      const entity = this.viewer!.entities.add({
+        id: `ANL_${g.gridId}`,
+        position: Cesium.Cartesian3.fromDegrees(g.center[0], g.center[1], 0),
+        ellipse: {
+          semiMajorAxis: size,
+          semiMinorAxis: size,
+          material: color,
+          outline: true,
+          outlineColor: Cesium.Color.WHITE.withAlpha(0.7)
+        },
+        label: {
+          text: `${g.label || g.gridId}\n${g.count}（${caption}）`,
+          font: '12px sans-serif',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          pixelOffset: new Cesium.Cartesian2(0, -18),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      })
+      this.analysisOverlayEntities.set(`ANL_${g.gridId}`, entity)
     })
   }
 

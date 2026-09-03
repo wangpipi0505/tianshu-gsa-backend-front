@@ -21,7 +21,7 @@
         <el-icon><Compass /></el-icon>
         <span>三维态势主工作台</span>
       </router-link>
-      <router-link to="/fusion" class="nav-item" active-class="active">
+      <router-link v-if="identityStore.canDo('fusion')" to="/fusion" class="nav-item" active-class="active">
         <el-icon><Connection /></el-icon>
         <span>多源时空数据融合</span>
       </router-link>
@@ -50,6 +50,16 @@
         <div class="utc-time">世界时: {{ utcTime }}</div>
       </div>
 
+      <el-tag size="small">{{ clearanceLabel }}</el-tag>
+      <el-select
+        size="small"
+        :model-value="identityStore.userName"
+        style="width: 168px"
+        @change="(v: any) => identityStore.switchProfile(v)"
+      >
+        <el-option v-for="p in identityStore.profiles" :key="p.name" :label="`${p.name} / ${clearanceText(p.clearance)}`" :value="p.name" />
+      </el-select>
+      <el-tag size="small" :type="freshnessTag" style="cursor: pointer" @click="onRefresh">{{ freshnessText }}</el-tag>
       <el-badge :value="situationStore.watchedTargetIds.length" :hidden="!situationStore.watchedTargetIds.length">
         <el-button size="small" plain @click="emit('open-watch-list')">
           <span>关注对象集</span>
@@ -66,8 +76,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
 import { useSituationStore } from '@/stores/situationStore'
+import { useIdentityStore } from '@/stores/identityStore'
+import { useFusionStore } from '@/stores/fusionStore'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import {
@@ -85,6 +98,30 @@ dayjs.extend(utc)
 const emit = defineEmits(['toggle-agent', 'open-scene-modal', 'open-watch-list'])
 const sceneStore = useSceneStore()
 const situationStore = useSituationStore()
+const identityStore = useIdentityStore()
+const fusionStore = useFusionStore()
+const CLEARANCE_LABEL: Record<string, string> = {
+  internal: '内部',
+  confidential: '秘密',
+  secret: '机密',
+  top_secret: '绝密'
+}
+function clearanceText(level: string) {
+  return CLEARANCE_LABEL[level] || level
+}
+const clearanceLabel = computed(() => `密级 ${clearanceText(identityStore.clearance)}`)
+const freshnessText = computed(() => {
+  const prod = fusionStore.productReleases[0]
+  const tp = prod?.statement?.lastUpdated || situationStore.currentPlaybackTime
+  const status = fusionStore.refreshStatus === 'updating' ? '更新中' : fusionStore.refreshStatus === 'failed' ? '失败' : '最新'
+  return `${status} · 数据时点 ${tp} · ${fusionStore.confirmMode}`
+})
+const freshnessTag = computed(() =>
+  fusionStore.refreshStatus === 'updating' ? 'warning' : fusionStore.refreshStatus === 'failed' ? 'danger' : 'success'
+)
+function onRefresh() {
+  void fusionStore.refreshLatest()
+}
 
 const bjtTime = ref('')
 const utcTime = ref('')

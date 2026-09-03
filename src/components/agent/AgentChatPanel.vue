@@ -157,6 +157,16 @@
             @keydown.enter="onEnterKey"
           />
           <div class="input-actions">
+            <el-button
+              v-if="speechSupported"
+              size="small"
+              circle
+              :type="listening ? 'primary' : 'default'"
+              title="语音输入"
+              @click="toggleSpeech"
+            >
+              <el-icon><Microphone /></el-icon>
+            </el-button>
             <el-button size="small" circle @click="agentStore.resetSession" title="重置对话">
               <el-icon><Refresh /></el-icon>
             </el-button>
@@ -209,8 +219,37 @@ import {
   Promotion,
   ArrowDown,
   CircleCheck,
-  FolderOpened
+  FolderOpened,
+  Microphone
 } from '@element-plus/icons-vue'
+
+const speechSupported =
+  typeof window !== 'undefined' &&
+  (!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition)
+const listening = ref(false)
+let recognition: any = null
+
+function toggleSpeech() {
+  const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  if (!Ctor) return
+  if (listening.value && recognition) {
+    recognition.stop()
+    listening.value = false
+    return
+  }
+  recognition = new Ctor()
+  recognition.lang = 'zh-CN'
+  recognition.interimResults = false
+  recognition.onresult = (ev: any) => {
+    const text = ev.results?.[0]?.[0]?.transcript || ''
+    if (text) inputPrompt.value = `${inputPrompt.value}${inputPrompt.value ? ' ' : ''}${text}`
+  }
+  recognition.onend = () => {
+    listening.value = false
+  }
+  recognition.start()
+  listening.value = true
+}
 
 marked.setOptions({
   breaks: true,

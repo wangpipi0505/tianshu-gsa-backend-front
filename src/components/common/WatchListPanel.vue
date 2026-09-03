@@ -35,7 +35,7 @@ const sceneStore = useSceneStore()
 
 const items = computed(() =>
   situationStore.watchedTargetIds
-    .map((id) => situationStore.targets.find((t) => t.id === id))
+    .map((id) => situationStore.visibleTargets.find((t) => t.id === id))
     .filter((t): t is NonNullable<typeof t> => !!t)
 )
 

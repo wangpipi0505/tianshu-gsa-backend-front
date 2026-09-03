@@ -28,6 +28,7 @@ import {
   MOCK_PRIMARY_ASSESSMENT
 } from '@/mock/mockSituationAssets'
 import { MOCK_EVIDENCE_ITEMS } from '@/mock/mockIntelligence'
+import { useIdentityStore } from '@/stores/identityStore'
 import {
   deriveTimelineExtent,
   buildDensityBuckets,
@@ -152,9 +153,14 @@ export const useSituationStore = defineStore('situation', () => {
   })
 
   // 当前选中的目标详细对象
+  const visibleTargets = computed(() => {
+    const identity = useIdentityStore()
+    return targets.value.filter((t) => identity.canSee(t.classification || 'internal'))
+  })
+
   const selectedTarget = computed(() => {
     if (!selectedTargetId.value) return null
-    return targets.value.find((t) => t.id === selectedTargetId.value) || null
+    return visibleTargets.value.find((t) => t.id === selectedTargetId.value) || null
   })
 
   // 关联到当前选中目标的事件
@@ -580,6 +586,7 @@ export const useSituationStore = defineStore('situation', () => {
 
   return {
     targets,
+    visibleTargets,
     events,
     relations,
     regions,

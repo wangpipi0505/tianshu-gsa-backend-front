@@ -11,7 +11,11 @@ import type {
   TrajectoryResult,
   AssociationResult,
   ThematicAsset,
-  SourceScope
+  SourceScope,
+  CountMode,
+  SpatialAggMode,
+  AnalysisTemplate,
+  EventImpactResult
 } from '@/types/analysis'
 import type { SituationTarget } from '@/types/situation'
 import { fetchAnalysisModels, fetchThematicAssets, publishThematicAsset, runAnalysis } from '@/api/analysis'
@@ -61,6 +65,11 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const thematicAssets = ref<ThematicAsset[]>([])
   const objectRangeTargetIds = ref<string[]>([])
   const objectRangeLabel = ref('')
+  const countMode = ref<CountMode>('unified_object')
+  const spatialAgg = ref<SpatialAggMode>('grid')
+  const templates = ref<AnalysisTemplate[]>([])
+  const eventImpact = ref<EventImpactResult | null>(null)
+  const userRect = ref<{ west: number; east: number; south: number; north: number } | null>(null)
 
   function applyMock() {
     thematicAssets.value = cloneMock(MOCK_THEMATIC_ASSETS)
@@ -91,9 +100,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const isWorkContentTarget = (t: SituationTarget) =>
       t.isHypothesis === true || t.id.startsWith('CONSTRUCT-') || t.id.startsWith('SIM-HYPO')
     const rangeIds = objectRangeTargetIds.value
+    const visiblePool = situation.visibleTargets
     const pool = rangeIds.length
-      ? situation.targets.filter((t) => rangeIds.includes(t.id))
-      : situation.targets
+      ? visiblePool.filter((t) => rangeIds.includes(t.id))
+      : visiblePool
     const targets = pool.filter((t) => (scopeExcludesHypothesis ? !isWorkContentTarget(t) : true))
     if (scope === 'work_only') {
       // 仅标绘推演口径：只统计推演假设与构建目标
@@ -138,20 +148,83 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const allConflicts = targets.flatMap((t) => t.conflicts || [])
     const unresolved = allConflicts.filter((c) => c.resolutionStatus !== 'resolved').length
 
+    const sourceRecordCount = targets.reduce((n, t) => n + Math.max(1, t.evidenceIds?.length || 1), 0)
+    const total = countMode.value === 'source_record' ? sourceRecordCount : targets.length
+    const spatialGrids = buildSpatialBuckets(targets)
     statisticalResult.value = {
-      totalCount: targets.length,
+      totalCount: total,
       categoryBreakdown: groups.map((g) => ({
         name: g.name,
-        count: g.count,
-        ratio: targets.length ? Math.round((g.count / targets.length) * 1000) / 10 : 0,
+        count: countMode.value === 'source_record' ? g.count * 2 - Math.min(1, g.count) : g.count,
+        ratio: total ? Math.round(((countMode.value === 'source_record' ? g.count * 2 - Math.min(1, g.count) : g.count) / total) * 1000) / 10 : 0,
         color: g.color
       })),
       timeSeriesDensity,
-      spatialGrids: statisticalResult.value.spatialGrids,
+      spatialGrids,
       conflictRate: allConflicts.length ? Math.round((unresolved / allConflicts.length) * 1000) / 10 : 0,
-      coverageScore: 95.6
+      coverageScore: 95.6,
+      countMode: countMode.value,
+      sourceRecordCount
     }
     void situation
+  }
+
+  function buildSpatialBuckets(targets: SituationTarget[]) {
+    if (spatialAgg.value === 'admin') {
+      const buckets = [
+        { id: '东南海峡', test: (t: SituationTarget) => t.longitude >= 117 && t.longitude <= 125 },
+        { id: '中东波斯湾', test: (t: SituationTarget) => t.longitude >= 48 && t.longitude <= 62 },
+        { id: '其他区域', test: () => true }
+      ]
+      const used = new Set<string>()
+      return buckets
+        .map((b) => {
+          const members = targets.filter((t) => !used.has(t.id) && b.test(t))
+          members.forEach((t) => used.add(t.id))
+          const lon = members.reduce((s, t) => s + t.longitude, 0) / (members.length || 1)
+          const lat = members.reduce((s, t) => s + t.latitude, 0) / (members.length || 1)
+          return {
+            gridId: b.id,
+            label: b.id,
+            center: [lon || 120, lat || 24] as [number, number],
+            count: members.length,
+            densityLevel: members.length >= 4 ? '高' : members.length >= 2 ? '中' : '低'
+          }
+        })
+        .filter((g) => g.count > 0)
+    }
+    if (spatialAgg.value === 'user_rect') {
+      const rect = userRect.value || { west: 118, east: 124, south: 22, north: 27 }
+      const members = targets.filter(
+        (t) => t.longitude >= rect.west && t.longitude <= rect.east && t.latitude >= rect.south && t.latitude <= rect.north
+      )
+      return [
+        {
+          gridId: 'USER-RECT',
+          label: '用户圈选区域',
+          center: [(rect.west + rect.east) / 2, (rect.south + rect.north) / 2] as [number, number],
+          count: members.length,
+          densityLevel: members.length >= 4 ? '高' : members.length >= 2 ? '中' : '低'
+        }
+      ]
+    }
+    const cells = new Map<string, SituationTarget[]>()
+    targets.forEach((t) => {
+      const key = `${Math.floor(t.longitude)}_${Math.floor(t.latitude)}`
+      const list = cells.get(key) || []
+      list.push(t)
+      cells.set(key, list)
+    })
+    return Array.from(cells.entries()).map(([key, list]) => {
+      const [lon, lat] = key.split('_').map(Number)
+      return {
+        gridId: key,
+        label: `网格 ${lon}°,${lat}°`,
+        center: [lon + 0.5, lat + 0.5] as [number, number],
+        count: list.length,
+        densityLevel: list.length >= 3 ? '高' : list.length >= 2 ? '中' : '低'
+      }
+    })
   }
 
   function buildTrajectory(target: SituationTarget | null) {
@@ -199,7 +272,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
   }
 
   function buildAssociation(situation: ReturnType<typeof useSituationStore>, excludeHypothesis: boolean) {
-    const targets = situation.targets.filter((t) => (excludeHypothesis ? !t.isHypothesis : true))
+    const targets = situation.visibleTargets.filter((t) => (excludeHypothesis ? !t.isHypothesis : true))
     const involved = new Set<string>()
     situation.relations.forEach((r) => {
       involved.add(r.sourceTargetId)
@@ -261,6 +334,91 @@ export const useAnalysisStore = defineStore('analysis', () => {
     if (USE_MOCK) computeFromSituation()
   }
 
+  function setCountMode(mode: CountMode) {
+    countMode.value = mode
+    if (USE_MOCK) computeFromSituation()
+  }
+
+  function setSpatialAgg(mode: SpatialAggMode) {
+    spatialAgg.value = mode
+    if (USE_MOCK) computeFromSituation()
+  }
+
+  function setUserRect(rect: { west: number; east: number; south: number; north: number } | null) {
+    userRect.value = rect
+    if (spatialAgg.value === 'user_rect' && USE_MOCK) computeFromSituation()
+  }
+
+  function saveTemplate(name: string) {
+    templates.value.unshift({
+      id: `TPL-${Date.now()}`,
+      name,
+      sourceScope: currentSourceScope.value,
+      countMode: countMode.value,
+      spatialAgg: spatialAgg.value,
+      timeWindow: [...currentModel.value.timeWindow],
+      spatialFilter: currentModel.value.spatialFilter,
+      targetTypes: [...currentModel.value.targetTypes],
+      metrics: [...currentModel.value.metrics],
+      createdAt: new Date().toISOString()
+    })
+  }
+
+  function applyTemplate(id: string) {
+    const tpl = templates.value.find((t) => t.id === id)
+    if (!tpl) return
+    currentSourceScope.value = tpl.sourceScope
+    countMode.value = tpl.countMode
+    spatialAgg.value = tpl.spatialAgg
+    const situation = useSituationStore()
+    currentModel.value = {
+      ...currentModel.value,
+      sourceScope: tpl.sourceScope,
+      timeWindow: [...situation.timelineRange],
+      spatialFilter: situation.targets.length ? '当前场景空间范围' : tpl.spatialFilter,
+      targetTypes: [...tpl.targetTypes],
+      metrics: [...tpl.metrics]
+    }
+    if (USE_MOCK) computeFromSituation()
+  }
+
+  function computeEventImpact(eventId: string) {
+    const situation = useSituationStore()
+    const event = situation.events.find((e) => e.id === eventId)
+    if (!event) {
+      eventImpact.value = null
+      return
+    }
+    const t0 = new Date(event.timestamp.replace(/-/g, '/')).getTime()
+    const before: [string, string] = [
+      new Date(t0 - 30 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19),
+      event.timestamp
+    ]
+    const after: [string, string] = [
+      event.timestamp,
+      new Date(t0 + 30 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
+    ]
+    const statusChanges = event.affectedTargetIds.map((id) => {
+      const t = situation.targets.find((item) => item.id === id)
+      return {
+        targetId: id,
+        name: t?.codeName || id,
+        before: '事件前：巡航/待命',
+        after: t?.status === 'active' ? '事件后：持续活动' : `事件后：${t?.status || '未知'}`
+      }
+    })
+    eventImpact.value = {
+      eventId: event.id,
+      eventName: event.eventName,
+      beforeWindow: before,
+      afterWindow: after,
+      statusChanges,
+      relationDelta: { added: Math.max(0, situation.relations.length - 2), removed: 1 },
+      spatialDeltaKm: 18.6,
+      conclusion: `事件「${event.eventName}」前后 30 分钟内，${statusChanges.length} 个参与对象状态变化，关系净增 ${Math.max(0, situation.relations.length - 3)} 条，空间活动范围扩展约 18.6 公里。`
+    }
+  }
+
   function removeThematicAsset(id: string) {
     thematicAssets.value = thematicAssets.value.filter((t) => t.id !== id)
   }
@@ -307,6 +465,17 @@ export const useAnalysisStore = defineStore('analysis', () => {
     objectRangeTargetIds,
     objectRangeLabel,
     publishCurrentThematic,
-    removeThematicAsset
+    removeThematicAsset,
+    countMode,
+    spatialAgg,
+    templates,
+    eventImpact,
+    userRect,
+    setCountMode,
+    setSpatialAgg,
+    setUserRect,
+    saveTemplate,
+    applyTemplate,
+    computeEventImpact
   }
 })

@@ -173,6 +173,12 @@ function startRect() {
       east.value = Number(rect.east.toFixed(4))
       south.value = Number(rect.south.toFixed(4))
       north.value = Number(rect.north.toFixed(4))
+      analysisStore.setUserRect({
+        west: west.value,
+        east: east.value,
+        south: south.value,
+        north: north.value
+      })
       drawing.value = false
       situationStore.pickBlocked = false
     },
@@ -195,7 +201,13 @@ function currentCriteria() {
 }
 
 function runSearch() {
-  hits.value = runSpatialSearch(situationStore.targets.filter((t) => !t.isHypothesis), currentCriteria())
+  analysisStore.setUserRect({
+    west: west.value,
+    east: east.value,
+    south: south.value,
+    north: north.value
+  })
+  hits.value = runSpatialSearch(situationStore.visibleTargets.filter((t) => !t.isHypothesis), currentCriteria())
   ElMessage.success(`检索完成，命中 ${hits.value.length} 个目标`)
 }
 

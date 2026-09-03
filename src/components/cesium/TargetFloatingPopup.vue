@@ -23,6 +23,7 @@
         </el-tag>
         <span class="target-name">{{ target.codeName }}</span>
         <span class="callsign">({{ target.callsign }})</span>
+        <el-tag size="small" type="info">{{ classificationLabel }}</el-tag>
       </div>
       <el-button size="small" circle text class="close-btn" @click.stop="close" title="关闭信息框">
         <el-icon><Close /></el-icon>
@@ -172,6 +173,13 @@ const emit = defineEmits(['close', 'open-drawer'])
 
 const agentStore = useAgentStore()
 const situationStore = useSituationStore()
+const CLASSIFICATION_LABEL: Record<string, string> = {
+  internal: '内部',
+  confidential: '秘密',
+  secret: '机密',
+  top_secret: '绝密'
+}
+const classificationLabel = computed(() => CLASSIFICATION_LABEL[props.target?.classification || 'internal'] || '内部')
 const isWatched = computed(() => !!props.target && situationStore.watchedTargetIds.includes(props.target.id))
 
 function toggleWatch() {

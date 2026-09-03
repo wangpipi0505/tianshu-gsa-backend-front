@@ -87,6 +87,7 @@ export const MOCK_TARGETS: SituationTarget[] = [
     affiliation: 'foe',
     status: 'active',
     isHypothesis: false,
+    classification: 'secret',
     imageUrl: SVG_FIGHTER_VIPER,
     longitude: 122.85,
     latitude: 24.65,

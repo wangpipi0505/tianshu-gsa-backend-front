@@ -21,7 +21,8 @@ export interface DatasetProduct {
   sampleRecords: Record<string, any>[]
 }
 
-/** 语义与属性映射规则 */
+export type ExceptionStrategy = 'mark' | 'drop' | 'downgrade' | 'manual_fill'
+
 export interface MappingRule {
   id: string
   sourceField: string
@@ -29,6 +30,20 @@ export interface MappingRule {
   ontologyField: string
   transformType: 'direct' | 'coordinate_wgs84' | 'time_iso' | 'enum_map' | 'custom_script'
   ruleDescription: string
+}
+
+export interface RuleChangeLog {
+  id: string
+  jobId: string
+  ruleId: string
+  action: 'create' | 'update' | 'delete'
+  summary: string
+  createdAt: string
+}
+
+export interface ExceptionPolicy {
+  datasetId: string
+  strategy: ExceptionStrategy
 }
 
 /** 候选关联项（供人工确认/保持独立/暂缓） */
@@ -54,6 +69,7 @@ export interface AssociationCandidate {
   decision: 'unconfirmed' | 'confirmed_same' | 'keep_independent' | 'deferred'
   unifiedTargetId?: string
   reviewNotes?: string
+  decidedAt?: string
 }
 
 /** 融合工作过程实体 */
@@ -72,6 +88,7 @@ export interface FusionJob {
   publishedAssetVersion?: string
   createdAt: string
   updatedAt: string
+  exceptionPolicies?: ExceptionPolicy[]
 }
 
 /** 时空态势资产版本实体 (唯一事实层) */
@@ -105,5 +122,6 @@ export interface ProductRelease {
     spatialRange: string
     timeWindow: string
     lastUpdated: string
+    confirmMode?: '人工确认' | '自动发布'
   }
 }

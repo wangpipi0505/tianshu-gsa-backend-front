@@ -43,6 +43,7 @@ import { cesiumController, parseSliceEntityId, type BasemapType } from '@/utils/
 import { useSituationStore } from '@/stores/situationStore'
 import { useSceneStore } from '@/stores/sceneStore'
 import { useAgentStore } from '@/stores/agentStore'
+import { useIdentityStore } from '@/stores/identityStore'
 import type { SituationTarget } from '@/types/situation'
 import TargetFloatingPopup from '@/components/cesium/TargetFloatingPopup.vue'
 import EventDetailCard from '@/components/cesium/EventDetailCard.vue'
@@ -51,9 +52,10 @@ const emit = defineEmits(['select-target', 'open-drawer'])
 const situationStore = useSituationStore()
 const sceneStore = useSceneStore()
 const agentStore = useAgentStore()
+const identityStore = useIdentityStore()
 
 function getTargetById(id: string): SituationTarget | null {
-  return situationStore.targets.find((t) => t.id === id) || null
+  return situationStore.visibleTargets.find((t) => t.id === id) || null
 }
 
 // 默认使用遥感卫星高清影像
@@ -61,8 +63,10 @@ const currentBasemap = ref<BasemapType>('satellite')
 
 const basemaps: Array<{ type: BasemapType; label: string; icon: string }> = [
   { type: 'satellite', label: '遥感卫星影像 (默认)', icon: '🛰️' },
+  { type: 'hillshade', label: '地形晕渲', icon: '⛰️' },
+  { type: 'imagery_anno', label: '影像+注记', icon: '🗺️' },
   { type: 'dark', label: '深色战术底图', icon: '🌌' },
-  { type: 'street', label: '电子矢量地图', icon: '🗺️' }
+  { type: 'street', label: '电子矢量地图', icon: '🧭' }
 ]
 
 function changeBasemap(type: BasemapType) {
@@ -105,7 +109,7 @@ function extractTargetIdFromPosition(position: Cesium.Cartesian2, scene: Cesium.
   if (clusterId) return `CLUSTER:${clusterId}`
 
   // 严格白名单：仅当命中目标本体实体 ID (Target-001, Target-ME-001 等) 时才判定为点击目标
-  if (situationStore.targets.some((t) => t.id === rawId)) {
+  if (situationStore.visibleTargets.some((t) => t.id === rawId)) {
     return rawId
   }
 
@@ -114,17 +118,17 @@ function extractTargetIdFromPosition(position: Cesium.Cartesian2, scene: Cesium.
 
 function updateCesiumScene(mode: 'full' | 'positions' = 'full') {
   if (mode === 'positions') {
-    cesiumController.updateTargetPositions(situationStore.targets)
+    cesiumController.updateTargetPositions(situationStore.visibleTargets)
     return
   }
-  cesiumController.applyTargetClustering(situationStore.targets)
+  cesiumController.applyTargetClustering(situationStore.visibleTargets)
   cesiumController.renderTargets(
-    situationStore.targets,
+    situationStore.visibleTargets,
     situationStore.selectedTargetId || undefined
   )
   cesiumController.renderRelations(
     situationStore.relations,
-    situationStore.targets
+    situationStore.visibleTargets
   )
   cesiumController.renderRegions(
     situationStore.regions
@@ -182,7 +186,7 @@ onMounted(() => {
     }
     const clusterId = cesiumController.extractClusterId(rawId)
     if (clusterId) {
-      cesiumController.zoomIntoCluster(clusterId, situationStore.targets)
+      cesiumController.zoomIntoCluster(clusterId, situationStore.visibleTargets)
       return
     }
 
@@ -198,7 +202,7 @@ onMounted(() => {
       return
     }
 
-    if (situationStore.targets.some((t) => t.id === rawId)) {
+    if (situationStore.visibleTargets.some((t) => t.id === rawId)) {
       situationStore.toggleTargetPopup(rawId)
       emit('select-target', rawId)
     }
@@ -219,9 +223,27 @@ onMounted(() => {
 
   updateCesiumScene()
   let cameraTimer: number | null = null
+  let lastAutoZone = ''
   viewer.camera.changed.addEventListener(() => {
     if (cameraTimer) window.clearTimeout(cameraTimer)
-    cameraTimer = window.setTimeout(() => updateCesiumScene('full'), 180)
+    cameraTimer = window.setTimeout(() => {
+      updateCesiumScene('full')
+      const carto = viewer.camera.positionCartographic
+      const lon = Cesium.Math.toDegrees(carto.longitude)
+      const lat = Cesium.Math.toDegrees(carto.latitude)
+      const height = carto.height
+      const zone =
+        height < 2500000 && lon >= 118 && lon <= 125 && lat >= 21 && lat <= 27
+          ? 'eastsea'
+          : height < 2500000 && lon >= 48 && lon <= 62 && lat >= 22 && lat <= 30
+            ? 'mideast'
+            : ''
+      if (zone && zone !== lastAutoZone && currentBasemap.value !== 'satellite' && currentBasemap.value !== 'imagery_anno') {
+        changeBasemap('satellite')
+        lastAutoZone = zone
+      }
+      if (!zone) lastAutoZone = ''
+    }, 180)
   })
 })
 
@@ -258,7 +280,8 @@ watch(
     situationStore.dimNonHighlighted,
     sceneStore.contentLayers,
     sceneStore.workContents,
-    sceneStore.thematicPackages
+    sceneStore.thematicPackages,
+    identityStore.clearance
   ],
   () => {
     updateCesiumScene('full')

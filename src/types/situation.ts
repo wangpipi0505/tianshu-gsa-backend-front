@@ -103,6 +103,7 @@ export interface SituationTarget {
   conflicts: ObservationConflict[]
   evidenceIds: string[]
   createdProductVersion: string
+  classification?: 'internal' | 'confidential' | 'secret' | 'top_secret'
 }
 
 /** 未来多分支战术推演假说 */

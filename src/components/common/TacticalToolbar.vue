@@ -54,7 +54,7 @@
       </el-button>
     </el-tooltip>
 
-    <el-tooltip content="态势构建：在地球上点击放置位置" placement="bottom">
+    <el-tooltip v-if="identityStore.canDo('fusion')" content="态势构建：在地球上点击放置位置" placement="bottom">
       <el-button
         size="small"
         :type="activeTool === 'construct' ? 'primary' : 'default'"
@@ -119,8 +119,8 @@
     </el-tooltip>
 
     <!-- 场景快照导出 -->
-    <el-tooltip content="导出场景定义包 / 研判简报" placement="bottom">
-      <el-button size="small" circle @click="emit('open-export-modal')">
+    <el-tooltip v-if="identityStore.canDo('export')" content="导出场景定义包 / 研判简报" placement="bottom">
+      <el-button size="small" circle @click="onExport">
         <el-icon><Download /></el-icon>
       </el-button>
     </el-tooltip>
@@ -150,6 +150,7 @@
 import { ref } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
 import { useSituationStore } from '@/stores/situationStore'
+import { useIdentityStore } from '@/stores/identityStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -175,8 +176,15 @@ const emit = defineEmits([
   'open-search-drawer',
   'open-construct-form'
 ])
+
 const sceneStore = useSceneStore()
 const situationStore = useSituationStore()
+const identityStore = useIdentityStore()
+
+function onExport() {
+  identityStore.writeAudit('导出', '打开导出入口')
+  emit('open-export-modal')
+}
 
 const activeTool = ref<string | null>(null)
 const showCoordModal = ref(false)

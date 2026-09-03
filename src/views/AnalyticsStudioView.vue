@@ -10,7 +10,7 @@
           <el-icon><Aim /></el-icon>
           <span>在三维地球中聚焦联动</span>
         </el-button>
-        <el-button type="primary" size="small" @click="openPublishModal">
+        <el-button v-if="identityStore.canDo('publish')" type="primary" size="small" @click="openPublishModal">
           <el-icon><DocumentAdd /></el-icon>
           <span>沉淀为专题研判成果</span>
         </el-button>
@@ -57,8 +57,44 @@
       </div>
     </div>
 
+    <div class="thematic-assets-panel tactical-panel">
+      <div class="tactical-panel-header">
+        <span>分析模板</span>
+        <el-button size="small" @click="saveTpl">保存当前定义为模板</el-button>
+      </div>
+      <div class="assets-list">
+        <div v-for="tpl in analysisStore.templates" :key="tpl.id" class="asset-row">
+          <div class="a-main">
+            <div class="a-title">{{ tpl.name }}</div>
+            <div class="a-sub">{{ tpl.sourceScope }} · {{ tpl.countMode }} · {{ tpl.spatialAgg }}</div>
+          </div>
+          <el-button size="small" type="primary" plain @click="analysisStore.applyTemplate(tpl.id)">按当前场景重绑</el-button>
+        </div>
+        <div v-if="!analysisStore.templates.length" class="assets-empty">尚未保存分析模板</div>
+      </div>
+    </div>
+
+    <div class="thematic-assets-panel tactical-panel">
+      <div class="tactical-panel-header">
+        <span>事件前后影响对比</span>
+        <el-select size="small" style="width: 280px" placeholder="选择事件" @change="onEventImpact">
+          <el-option v-for="e in situationStore.events" :key="e.id" :label="e.eventName" :value="e.id" />
+        </el-select>
+      </div>
+      <div v-if="analysisStore.eventImpact" class="assets-list">
+        <div class="a-sub">{{ analysisStore.eventImpact.conclusion }}</div>
+        <div v-for="c in analysisStore.eventImpact.statusChanges" :key="c.targetId" class="asset-row">
+          <div class="a-main">
+            <div class="a-title">{{ c.name }}</div>
+            <div class="a-sub">{{ c.before }} → {{ c.after }}</div>
+          </div>
+        </div>
+        <el-button size="small" type="primary" plain @click="projectImpact">影响范围上图</el-button>
+      </div>
+    </div>
+
     <!-- 真实态势事实 vs 推演假设结果同场比对 -->
-    <DeductionDiffView />
+    <DeductionDiffView v-if="identityStore.canDo('simulation')" />
 
     <!-- 专题研判成果发布与三维图层挂载弹窗 -->
     <ThematicAssetPublishModal
@@ -79,6 +115,7 @@ import ThematicAssetPublishModal from '@/components/analysis/ThematicAssetPublis
 import { useSituationStore } from '@/stores/situationStore'
 import { useSceneStore } from '@/stores/sceneStore'
 import { useAnalysisStore } from '@/stores/analysisStore'
+import { useIdentityStore } from '@/stores/identityStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import type { SituationRegion } from '@/types/situation'
 import { ElMessage } from 'element-plus'
@@ -88,6 +125,7 @@ const router = useRouter()
 const situationStore = useSituationStore()
 const sceneStore = useSceneStore()
 const analysisStore = useAnalysisStore()
+const identityStore = useIdentityStore()
 
 const publishModalRef = ref<InstanceType<typeof ThematicAssetPublishModal> | null>(null)
 
@@ -198,6 +236,25 @@ function onPublishThematicAsset(form: any) {
   }, 100)
 
   ElMessage.success(`【${form.name}】已成功沉淀并发布至图层树！已清空其他无关要素，三维地球已高亮呈现该研判成果！`)
+}
+
+function saveTpl() {
+  const name = `分析模板-${new Date().toLocaleTimeString()}`
+  analysisStore.saveTemplate(name)
+  ElMessage.success(`模板「${name}」已保存`)
+}
+
+function onEventImpact(id: string) {
+  analysisStore.computeEventImpact(id)
+}
+
+function projectImpact() {
+  const impact = analysisStore.eventImpact
+  if (!impact) return
+  const ids = impact.statusChanges.map((c) => c.targetId)
+  sceneStore.showOnlyTargetsAndFeatures(ids)
+  router.push('/workbench')
+  ElMessage.success('事件影响对象已上图')
 }
 
 /** 一键恢复全域图层 (发布清场后的快捷回退) */

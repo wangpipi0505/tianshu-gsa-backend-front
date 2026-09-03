@@ -11,15 +11,15 @@
     <div class="intent-fields">
       <div class="field-item">
         <span class="k">目标对象:</span>
-        <span class="v text-cyan">{{ intent.targetScope.join(', ') }}</span>
+        <el-input v-model="draft.targetScope" size="small" />
       </div>
       <div class="field-item">
         <span class="k">空间范围:</span>
-        <span class="v">{{ intent.spatialScope }}</span>
+        <el-input v-model="draft.spatialScope" size="small" />
       </div>
       <div class="field-item">
         <span class="k">时间窗口:</span>
-        <span class="v">{{ intent.timeScope }}</span>
+        <el-input v-model="draft.timeScope" size="small" />
       </div>
       <div class="field-item">
         <span class="k">研判动作序列:</span>
@@ -27,17 +27,49 @@
           <li v-for="(act, idx) in intent.actionSequence" :key="idx">{{ act }}</li>
         </ol>
       </div>
+      <el-button size="small" type="primary" plain @click="reexecute">按修正意图重新执行</el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { reactive, watch } from 'vue'
 import type { IntentUnderstanding } from '@/types/agent'
+import { useAgentStore } from '@/stores/agentStore'
 import { Operation } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
-defineProps<{
+const props = defineProps<{
   intent?: IntentUnderstanding
 }>()
+
+const agentStore = useAgentStore()
+const draft = reactive({
+  targetScope: '',
+  spatialScope: '',
+  timeScope: ''
+})
+
+watch(
+  () => props.intent,
+  (intent) => {
+    if (!intent) return
+    draft.targetScope = intent.targetScope.join(', ')
+    draft.spatialScope = intent.spatialScope
+    draft.timeScope = intent.timeScope
+  },
+  { immediate: true }
+)
+
+function reexecute() {
+  if (!props.intent) return
+  props.intent.targetScope = draft.targetScope.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
+  props.intent.spatialScope = draft.spatialScope
+  props.intent.timeScope = draft.timeScope
+  const prompt = `按修正意图重新执行：对象=${draft.targetScope}；空间=${draft.spatialScope}；时间=${draft.timeScope}`
+  agentStore.sendMessage(prompt)
+  ElMessage.success('已按修正意图重新执行，修正记录已随会话留痕')
+}
 </script>
 
 <style scoped lang="scss">
@@ -73,8 +105,8 @@ defineProps<{
     .field-item {
       display: flex;
       gap: 8px;
+      align-items: center;
       .k { color: #6e87ab; min-width: 75px; }
-      .v { color: #f0f6fc; font-weight: 500; }
     }
 
     .action-list {

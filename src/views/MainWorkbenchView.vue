@@ -13,13 +13,13 @@
         :class="{ 'agent-open': agentStore.isOpen }"
       >
         <div class="quick-action-group">
-          <el-button type="warning" size="small" @click="simulationModalRef?.open()">
+          <el-button v-if="identityStore.canDo('simulation')" type="warning" size="small" @click="onOpenSimulation">
             <el-icon><VideoPlay /></el-icon>
             <span>发起红蓝推演</span>
           </el-button>
-          <el-button type="info" size="small" @click="candidateReviewModalRef?.open()">
+          <el-button v-if="identityStore.canDo('fusion')" type="info" size="small" @click="candidateReviewModalRef?.open()">
             <el-icon><Connection /></el-icon>
-            <span>多源关联确认 ({{ fusionStore.fusionJobs[0]?.candidates.length || 0 }})</span>
+            <span>多源关联确认 ({{ fusionStore.activeJob()?.candidates.length || 0 }})</span>
           </el-button>
         </div>
 
@@ -93,11 +93,13 @@ import VersionUpdateBanner from '@/components/scene/VersionUpdateBanner.vue'
 import { useSituationStore } from '@/stores/situationStore'
 import { useAgentStore } from '@/stores/agentStore'
 import { useFusionStore } from '@/stores/fusionStore'
+import { useIdentityStore } from '@/stores/identityStore'
 import { VideoPlay, Connection } from '@element-plus/icons-vue'
 
 const situationStore = useSituationStore()
 const agentStore = useAgentStore()
 const fusionStore = useFusionStore()
+const identityStore = useIdentityStore()
 
 const layerDrawerRef = ref<any>(null)
 const inspectorRef = ref<any>(null)
@@ -126,6 +128,11 @@ function onAskAgent(prompt: string) {
 
 function onOpenConstruct(payload: { lon: number; lat: number }) {
   constructFormRef.value?.open(payload.lon, payload.lat)
+}
+
+function onOpenSimulation() {
+  identityStore.writeAudit('推演', '打开推演入口')
+  simulationModalRef.value?.open()
 }
 
 defineExpose({

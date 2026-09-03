@@ -10,6 +10,9 @@ export type SourceScope =
   | 'work_only'
   | 'source_compare'
 
+export type CountMode = 'unified_object' | 'source_record'
+export type SpatialAggMode = 'grid' | 'admin' | 'user_rect'
+
 /** 分析问题模型定义 (5.5.2) */
 export interface AnalysisModel {
   id: string
@@ -27,9 +30,35 @@ export interface StatisticalResult {
   totalCount: number
   categoryBreakdown: Array<{ name: string; count: number; ratio: number; color?: string }>
   timeSeriesDensity: Array<{ timestamp: string; count: number }>
-  spatialGrids: Array<{ gridId: string; center: [number, number]; count: number; densityLevel: string }>
+  spatialGrids: Array<{ gridId: string; center: [number, number]; count: number; densityLevel: string; label?: string }>
   conflictRate: number
   coverageScore: number
+  countMode?: CountMode
+  sourceRecordCount?: number
+}
+
+export interface AnalysisTemplate {
+  id: string
+  name: string
+  sourceScope: SourceScope
+  countMode: CountMode
+  spatialAgg: SpatialAggMode
+  timeWindow: [string, string]
+  spatialFilter: string
+  targetTypes: string[]
+  metrics: string[]
+  createdAt: string
+}
+
+export interface EventImpactResult {
+  eventId: string
+  eventName: string
+  beforeWindow: [string, string]
+  afterWindow: [string, string]
+  statusChanges: Array<{ targetId: string; name: string; before: string; after: string }>
+  relationDelta: { added: number; removed: number }
+  spatialDeltaKm: number
+  conclusion: string
 }
 
 /** 过程与轨迹分析结果 (5.5.4) */

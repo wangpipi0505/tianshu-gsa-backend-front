@@ -9,6 +9,8 @@ import type { ChatMessage, ActionCard, IntentUnderstanding } from '@/types/agent
 import { FEATURED_PROMPTS, MOCK_AGENT_SCENARIOS } from '@/mock/mockAgentScenarios'
 import { MOCK_EVIDENCE_ITEMS } from '@/mock/mockIntelligence'
 import { USE_MOCK } from '@/config/dataSource'
+import { useIdentityStore } from '@/stores/identityStore'
+import { useSituationStore } from '@/stores/situationStore'
 import {
   createAgentSession,
   executeAgentAction,
@@ -113,6 +115,12 @@ export const useAgentStore = defineStore('agent', () => {
       const agentMsg = JSON.parse(JSON.stringify(scenarioMsgs[1]))
       agentMsg.id = `MSG-AGENT-${Date.now()}`
       agentMsg.timestamp = new Date().toLocaleTimeString()
+      const redacted = redactByClearance(promptText, agentMsg.content)
+      if (redacted !== agentMsg.content) {
+        agentMsg.content = redacted
+        agentMsg.actionCards = []
+        agentMsg.intentUnderstanding = undefined
+      }
       messages.value.push(agentMsg)
       if (agentMsg.intentUnderstanding) {
         activeIntent.value = agentMsg.intentUnderstanding
@@ -139,6 +147,19 @@ export const useAgentStore = defineStore('agent', () => {
         }
       ]
     })
+  }
+
+  function redactByClearance(promptText: string, content: string) {
+    const identity = useIdentityStore()
+    const situation = useSituationStore()
+    const visibleIds = new Set(situation.visibleTargets.map((t) => t.id))
+    const mentionsRestricted =
+      /VIPER|Target-001|突防战机|敌方重点/.test(promptText) || /VIPER|Target-001|突防战机/.test(content)
+    if (mentionsRestricted && !visibleIds.has('Target-001')) {
+      identity.writeAudit('问答过滤', '按身份密级隐藏不可见对象')
+      return '按当前身份密级，相关对象不可见。已按可见范围作答，未返回越权内容。'
+    }
+    return content
   }
 
   // mock 思考定时器：可取消，避免"重置对话后旧回复仍插入"与 isThinking 卡死

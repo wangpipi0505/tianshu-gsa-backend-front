@@ -49,7 +49,8 @@ export const MOCK_FUSION_JOBS: FusionJob[] = [
         },
         decision: 'confirmed_same',
         unifiedTargetId: 'Target-001',
-        reviewNotes: '经研判确认为同一实体在不同传感器下的多源观测'
+        reviewNotes: '经研判确认为同一实体在不同传感器下的多源观测',
+        decidedAt: '2026-08-25 15:06:00'
       },
       {
         id: 'CAND-002',
@@ -73,12 +74,92 @@ export const MOCK_FUSION_JOBS: FusionJob[] = [
           semanticBasis: '时间跨度较大，空间位置未对齐'
         },
         decision: 'keep_independent',
-        reviewNotes: '保持独立事实，不强制归并'
+        reviewNotes: '保持独立事实，不强制归并',
+        decidedAt: '2026-08-25 15:08:00'
+      },
+      {
+        id: 'CAND-003',
+        candidateName: '预警机与远程雷达弱关联候选',
+        targetType: 'air',
+        sourceRecords: [
+          {
+            datasetId: 'DS-OPTICAL-01',
+            datasetName: '高分光学载荷观测集',
+            recordId: 'OPT-REC-002',
+            observedTime: '2026-08-25 14:35:10',
+            location: [124.60, 25.80, 10500],
+            attributes: { targetClass: 'AWACS-SENTINEL', confidence: 0.98 },
+            confidence: 0.98
+          },
+          {
+            datasetId: 'DS-RADAR-02',
+            datasetName: '沿海预警雷达网连续航迹集',
+            recordId: 'RAD-REC-201',
+            observedTime: '2026-08-25 14:36:00',
+            location: [124.52, 25.74, 10200],
+            attributes: { speedKt: 410, headingDeg: 255, meanRcs: 18.4 },
+            confidence: 0.71
+          }
+        ],
+        matchBasis: {
+          timeMatch: true,
+          spatialDistanceKm: 9.6,
+          attributeMatchScore: 0.61,
+          semanticBasis: '时间接近但空间偏差较大，待进一步研判'
+        },
+        decision: 'unconfirmed'
       }
+    ],
+    exceptionPolicies: [
+      { datasetId: 'DS-OPTICAL-01', strategy: 'mark' },
+      { datasetId: 'DS-RADAR-02', strategy: 'downgrade' },
+      { datasetId: 'DS-INTEL-03', strategy: 'manual_fill' }
     ],
     publishedAssetVersion: 'ASSET-VER-20260825-v2.1',
     createdAt: '2026-08-25 14:00:00',
     updatedAt: '2026-08-25 15:10:00'
+  },
+  {
+    id: 'JOB-FUSION-20260825-02',
+    name: '中东护航编队多源融合工作',
+    topic: '霍尔木兹水道水面目标关联',
+    datasetIds: ['DS-SAR-04'],
+    spatialRange: '霍尔木兹海峡与阿曼湾',
+    timeRange: ['2026-08-25 06:00:00', '2026-08-25 15:00:00'],
+    targetTypes: ['maritime'],
+    status: 'running',
+    currentStep: 4,
+    mappingRules: [
+      { id: 'R-ME-1', sourceField: 'lon/lat', ontologyEntity: 'Target', ontologyField: 'location', transformType: 'coordinate_wgs84', ruleDescription: '水面目标平面坐标归一化' }
+    ],
+    candidates: [
+      {
+        id: 'CAND-ME-001',
+        candidateName: '护航编队水面目标候选',
+        targetType: 'maritime',
+        sourceRecords: [
+          {
+            datasetId: 'DS-SAR-04',
+            datasetName: 'SAR遥感侦察产品',
+            recordId: 'SAR-REC-ME-01',
+            observedTime: '2026-08-25 11:20:00',
+            location: [56.40, 26.10, 0],
+            attributes: { lengthM: 155.0 },
+            confidence: 0.88
+          }
+        ],
+        matchBasis: {
+          timeMatch: true,
+          spatialDistanceKm: 2.1,
+          attributeMatchScore: 0.8,
+          semanticBasis: '编队航迹与 SAR 成像位置一致'
+        },
+        decision: 'unconfirmed'
+      }
+    ],
+    exceptionPolicies: [{ datasetId: 'DS-SAR-04', strategy: 'mark' }],
+    createdAt: '2026-08-25 11:00:00',
+    updatedAt: '2026-08-25 14:40:00'
   }
 ]
 
@@ -107,7 +188,8 @@ export const MOCK_PRODUCT_RELEASES: ProductRelease[] = [
       fusionScope: '海峡重点空域多源关联',
       spatialRange: '东经118°-124°, 北纬22°-27°',
       timeWindow: '2026-08-25 00:00:00 至 15:00:00',
-      lastUpdated: '2026-08-25 15:15:00'
+      lastUpdated: '2026-08-25 15:15:00',
+      confirmMode: '人工确认'
     }
   }
 ]

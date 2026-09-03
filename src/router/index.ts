@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useIdentityStore } from '@/stores/identityStore'
 
 const routes = [
   {
@@ -30,6 +31,14 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach((to) => {
+  if (to.path !== '/fusion') return true
+  const identity = useIdentityStore()
+  if (identity.canDo('fusion')) return true
+  identity.writeAudit('访问融合页', '未授权，已拦截')
+  return '/workbench'
 })
 
 export default router
