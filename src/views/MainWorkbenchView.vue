@@ -50,8 +50,6 @@
       </div>
     </div>
 
-    <!-- 智能态势研判助手 (绝对定位纯悬浮图层，直接浮动于三维地球之上) -->
-    <AgentChatPanel ref="agentPanelRef" />
 
     <!-- 左侧：态势图层控制抽屉 (浮动抽屉形式) -->
     <ContentLayerTree ref="layerDrawerRef" />
@@ -90,7 +88,6 @@ import ContentLayerTree from '@/components/common/ContentLayerTree.vue'
 import SituationalTimeline from '@/components/common/SituationalTimeline.vue'
 import TacticalToolbar from '@/components/common/TacticalToolbar.vue'
 import TargetInspectorDrawer from '@/components/cesium/TargetInspectorDrawer.vue'
-import AgentChatPanel from '@/components/agent/AgentChatPanel.vue'
 import TemporalComparisonHUD from '@/components/cesium/TemporalComparisonHUD.vue'
 import SimulationModal from '@/components/simulation/SimulationModal.vue'
 import ExportPackageModal from '@/components/scene/ExportPackageModal.vue'

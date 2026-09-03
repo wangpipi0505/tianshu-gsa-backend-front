@@ -7,12 +7,16 @@
     <main class="main-content">
       <router-view ref="viewRef" />
     </main>
+
+    <!-- 智能研判助手（全局浮层，所有页面可用） -->
+    <AgentChatPanel />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import TacticalHeader from '@/components/common/TacticalHeader.vue'
+import AgentChatPanel from '@/components/agent/AgentChatPanel.vue'
 import { useAgentStore } from '@/stores/agentStore'
 
 const agentStore = useAgentStore()
@@ -25,6 +29,7 @@ function onToggleAgent() {
 
 <style scoped lang="scss">
 .app-layout {
+  position: relative;
   width: 100vw;
   height: 100vh;
   display: flex;
