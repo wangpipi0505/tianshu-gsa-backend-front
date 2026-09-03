@@ -146,6 +146,9 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .trajectory-profile-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -159,11 +162,14 @@ onUnmounted(() => {
 
   .trajectory-body {
     display: grid;
-    grid-template-columns: 1fr 360px;
+    grid-template-columns: minmax(0, 1fr) 360px;
     gap: 14px;
+    flex: 1;
+    min-height: 0;
 
     .profile-chart-dom {
-      height: 240px;
+      flex: 1;
+      min-height: 200px;
     }
 
     .turning-points-box {

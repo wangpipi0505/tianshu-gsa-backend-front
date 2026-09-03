@@ -148,6 +148,9 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .association-graph-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -155,11 +158,14 @@ onUnmounted(() => {
 
   .graph-body {
     display: grid;
-    grid-template-columns: 1fr 300px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     gap: 14px;
+    flex: 1;
+    min-height: 0;
 
     .graph-chart-dom {
-      height: 300px;
+      flex: 1;
+      min-height: 220px;
     }
 
     .threat-zones-list {

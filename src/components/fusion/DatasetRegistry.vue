@@ -33,13 +33,13 @@
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" text type="primary" @click="previewDataset(row)">样例数据</el-button>
+            <el-button size="small" text type="primary" @click="previewDataset(row)">数据记录</el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
 
-    <!-- 样例数据抽屉 -->
+    <!-- 数据记录抽屉 -->
     <el-drawer v-model="showPreviewDrawer" title="数据集原始记录预览" size="560px">
       <div v-if="selectedDataset" class="sample-preview-container">
         <div class="ds-meta">

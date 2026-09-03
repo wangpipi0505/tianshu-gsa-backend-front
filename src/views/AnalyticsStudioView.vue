@@ -30,6 +30,8 @@
       <AssociationGraph />
     </div>
 
+    <!-- 已沉淀专题成果 / 分析模板 / 事件影响对比（左中右布局） -->
+    <div class="insight-trio">
     <!-- 已沉淀专题成果列表（方案 5.5.7：可重新加载至场景） -->
     <div class="thematic-assets-panel tactical-panel">
       <div class="tactical-panel-header">
@@ -91,6 +93,7 @@
         </div>
         <el-button size="small" type="primary" plain @click="projectImpact">影响范围上图</el-button>
       </div>
+    </div>
     </div>
 
     <!-- 真实态势事实 vs 推演假设结果同场比对 -->
@@ -329,6 +332,29 @@ function removeAsset(item: { id: string; regionId?: string; title: string }) {
   }
 }
 
+.insight-trio {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  height: 250px;
+
+  .thematic-assets-panel {
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+
+    .tactical-panel-header .el-select {
+      width: 200px;
+    }
+  }
+
+  .assets-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
 .thematic-assets-panel {
   padding: 14px;
 
@@ -368,10 +394,11 @@ function removeAsset(item: { id: string; regionId?: string; title: string }) {
   }
 }
 
-.analysis-middle-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  .analysis-middle-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+    height: 42vh;
   /* 两面板高度不一致时各自顶对齐，避免矮面板被拉出大片空白 */
   align-items: start;
 

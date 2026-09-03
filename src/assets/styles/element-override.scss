@@ -53,6 +53,45 @@
     border-color: rgba(250, 173, 20, 0.65);
     color: #ffd666;
   }
+
+  // 文字按钮（is-text）hover 不允许出现白色底
+  &.is-text {
+    background: transparent;
+    color: #00d2ff;
+
+    &:hover, &:focus {
+      background: rgba(0, 210, 255, 0.15);
+      color: #00e5ff;
+    }
+  }
+}
+
+// 新版 el-select 使用 el-select__wrapper 渲染（未覆盖时为白色底，与深色主题冲突）
+.el-select__wrapper {
+  background-color: rgba(10, 18, 32, 0.85) !important;
+  box-shadow: 0 0 0 1px rgba(0, 210, 255, 0.35) inset !important;
+  color: #f0f6fc !important;
+  min-height: 32px;
+
+  &:hover, &.is-focused {
+    box-shadow: 0 0 0 1px #00d2ff inset, 0 0 10px rgba(0, 210, 255, 0.35) !important;
+  }
+
+  .el-select__placeholder {
+    color: #6e87ab !important;
+
+    &.is-transparent {
+      color: #4a5f7d !important;
+    }
+  }
+
+  .el-select__selected-item {
+    color: #f0f6fc !important;
+  }
+
+  .el-select__caret {
+    color: #6e87ab !important;
+  }
 }
 
 .el-overlay {

@@ -82,8 +82,8 @@
         </div>
 
         <div class="rules-box">
-          <div class="section-title">样例演示</div>
-          <el-select v-model="sampleKey" size="small" placeholder="选择一条来源样例" style="width: 100%" @change="runSample">
+          <div class="section-title">映射演示</div>
+          <el-select v-model="sampleKey" size="small" placeholder="选择一条来源记录" style="width: 100%" @change="runSample">
             <el-option v-for="opt in sampleOptions" :key="opt.key" :label="opt.label" :value="opt.key" />
           </el-select>
           <div v-if="sampleResult" class="sample-result">
@@ -230,7 +230,7 @@ const sampleOptions = computed(() => {
     const ds = fusionStore.datasets.find((d) => d.id === id)
     return (ds?.sampleRecords || []).map((rec, idx) => ({
       key: `${id}:${idx}`,
-      label: `${ds?.name} / ${rec.recordId || rec.reportId || `样例${idx + 1}`}`,
+      label: `${ds?.name} / ${rec.recordId || rec.reportId || `记录${idx + 1}`}`,
       record: rec
     }))
   })
