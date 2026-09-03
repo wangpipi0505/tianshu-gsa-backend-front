@@ -827,42 +827,20 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
       evidenceChain: [],
       actionCards: [
         {
-          id: 'ACT-SCS-01',
+          id: 'ACT-SCS-ALL',
           actionType: 'construct_target',
-          title: '🚢 构建我方南海维权巡逻编队',
-          description: '在 116.2°E, 14.8°N 构建我方巡逻编队目标（工作内容层）',
+          title: '🌊 构建南海对峙态势场景（双目标）',
+          description: '一次性上图构建南海对峙场景：我方巡逻编队与外军驱逐舰双目标同时写入工作内容层',
           previewPayload: {
-            name: '我方南海维权巡逻编队',
-            objectType: 'warship',
-            affiliation: 'friend',
-            longitude: 116.2,
-            latitude: 14.8,
-            altitude: 0,
-            speedKnots: 18,
-            remark: '南海维权巡逻编队（智能助手构建）'
+            targets: [
+              { name: '我方南海维权巡逻编队', objectType: 'warship', affiliation: 'friend', longitude: 116.2, latitude: 14.8, altitude: 0, speedKnots: 18 },
+              { name: '外军导弹驱逐舰', objectType: 'warship', affiliation: 'foe', longitude: 118.6, latitude: 13.5, altitude: 0, speedKnots: 22 }
+            ],
+            remark: '南海对峙态势场景（智能助手构建）'
           },
           executed: false,
           reversible: true,
           basisExplanation: '基于南海与菲律宾方向态势场景构建意图'
-        },
-        {
-          id: 'ACT-SCS-02',
-          actionType: 'construct_target',
-          title: '🚢 构建外军导弹驱逐舰目标',
-          description: '在 118.6°E, 13.5°N 构建外军驱逐舰目标（工作内容层），与我方编队形成对峙态势',
-          previewPayload: {
-            name: '外军导弹驱逐舰',
-            objectType: 'warship',
-            affiliation: 'foe',
-            longitude: 118.6,
-            latitude: 13.5,
-            altitude: 0,
-            speedKnots: 22,
-            remark: '南海对峙外军舰艇（智能助手构建）'
-          },
-          executed: false,
-          reversible: true,
-          basisExplanation: '基于南海对峙态势构建意图'
         }
       ]
     }

@@ -65,21 +65,30 @@ function execute() {
 
   if (props.action.actionType === 'construct_target') {
     const payload = props.action.previewPayload || {}
-    const result = applyConstructDraft({
-      name: payload.name || '构建目标',
-      objectType: payload.objectType || 'aircraft',
-      affiliation: payload.affiliation || 'friend',
-      longitude: payload.longitude ?? 122.4,
-      latitude: payload.latitude ?? 24.8,
-      altitude: payload.altitude ?? 0,
-      speedKnots: payload.speedKnots ?? 0,
-      remark: payload.remark || props.action.basisExplanation,
-      produceMode: 'agent',
-      createdBy: '智能研判助手'
+    // 支持批量构建（targets 数组）与单目标构建
+    const targetList = (Array.isArray(payload.targets) ? payload.targets : [payload]) as Array<{
+      name: string; objectType: string; affiliation: string; longitude: number; latitude: number; altitude: number; speedKnots: number; remark?: string
+    }>
+    targetList.forEach((t) => {
+      applyConstructDraft({
+        name: t.name || '构建目标',
+        objectType: (t.objectType as 'warship' | 'aircraft' | 'facility') || 'aircraft',
+        affiliation: (t.affiliation as 'friend' | 'foe' | 'neutral') || 'friend',
+        longitude: t.longitude ?? 122.4,
+        latitude: t.latitude ?? 24.8,
+        altitude: t.altitude ?? 0,
+        speedKnots: t.speedKnots ?? 0,
+        remark: t.remark || props.action.basisExplanation,
+        produceMode: 'agent',
+        createdBy: '智能研判助手'
+      })
     })
-    props.action.previewPayload = { ...payload, targetId: result.targetId, workContentId: result.workContentId }
-    cesiumController.flyToLocation(payload.longitude ?? 122.4, payload.latitude ?? 24.8, 260000, 0, -89.9)
-    ElMessage.success(`已构建目标：${payload.name || '构建目标'}`)
+    props.action.previewPayload = { ...payload, executedCount: targetList.length }
+    const lastTarget = situationStore.targets[situationStore.targets.length - 1]
+    if (lastTarget) {
+      cesiumController.flyToLocation(lastTarget.longitude, lastTarget.latitude, targetList.length === 1 ? 260000 : 1200000, 0, -45)
+    }
+    ElMessage.success(`已构建 ${targetList.length} 个目标（南海对峙态势场景）`)
     return
   }
 

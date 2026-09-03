@@ -271,7 +271,7 @@ export const useSceneStore = defineStore('scene', () => {
     const factsTier = contentLayers.value.find((l) => l.id === 'LAYER-FACTS')
     if (!factsTier || !factsTier.visible) return false
 
-    let targetVisible = false
+    let targetVisible = true
     const searchTarget = (nodes: LayerTreeNode[]) => {
       for (const n of nodes) {
         if (n.targetId === targetId && n.nodeType === 'entity') {

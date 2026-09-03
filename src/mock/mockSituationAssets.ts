@@ -670,6 +670,106 @@ export const MOCK_TARGETS: SituationTarget[] = [
     conflicts: [],
     evidenceIds: [],
     createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-04',
+    codeName: '我方南海岛礁雷达站',
+    callsign: 'SCS-RADAR-07',
+    type: 'ground_facility',
+    affiliation: 'friend',
+    status: 'active',
+    longitude: 113.5,
+    latitude: 9.8,
+    altitude: 45,
+    speedKnots: 0,
+    headingDeg: 0,
+    tracks: [],
+    operationalStatus: {
+      readinessLevel: '常态化战备 (全天候值守)',
+      missionTask: '南海重点岛礁周边海空情监视与预警',
+      sensorMode: '对海/对空远程搜索雷达24小时值守',
+      datalinkState: '卫星通信链路在线',
+      fuelOrHealthPercent: 96
+    },
+    sensorCoverage: {
+      radarRangeKm: 420,
+      scanAngleDeg: 360,
+      coneColor: '#00d2ff',
+      isScanning: true
+    },
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-05',
+    codeName: '外军P-8A反潜巡逻机',
+    callsign: 'P8A-552',
+    type: 'aircraft',
+    affiliation: 'foe',
+    status: 'active',
+    longitude: 117.5,
+    latitude: 12.2,
+    altitude: 8500,
+    speedKnots: 380,
+    headingDeg: 195,
+    tracks: [
+      { longitude: 118.2, latitude: 11.5, altitude: 8500, speedKnots: 370, headingDeg: 200, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 117.8, latitude: 11.9, altitude: 8500, speedKnots: 375, headingDeg: 198, timestamp: '2026-08-25 14:00:00' },
+      { longitude: 117.5, latitude: 12.2, altitude: 8500, speedKnots: 380, headingDeg: 195, timestamp: '2026-08-25 15:20:00' }
+    ],
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-06',
+    codeName: '我方南海巡航护卫舰',
+    callsign: 'PLAN-FFG-570',
+    type: 'warship',
+    affiliation: 'friend',
+    status: 'active',
+    longitude: 114.2,
+    latitude: 11.5,
+    altitude: 0,
+    speedKnots: 16,
+    headingDeg: 145,
+    tracks: [
+      { longitude: 113.8, latitude: 10.8, altitude: 0, speedKnots: 14, headingDeg: 140, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 114.0, latitude: 11.2, altitude: 0, speedKnots: 15, headingDeg: 142, timestamp: '2026-08-25 14:00:00' },
+      { longitude: 114.2, latitude: 11.5, altitude: 0, speedKnots: 16, headingDeg: 145, timestamp: '2026-08-25 15:20:00' }
+    ],
+    operationalStatus: {
+      readinessLevel: '二级战备 (南海巡航)',
+      missionTask: '南海南部海域巡航与岛礁补给护航',
+      sensorMode: '对海/对空搜索雷达值班',
+      datalinkState: '卫通数据链在线',
+      fuelOrHealthPercent: 91
+    },
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-07',
+    codeName: '菲律宾武装渔船编队',
+    callsign: 'PCG-AF-03',
+    type: 'warship',
+    affiliation: 'neutral',
+    status: 'active',
+    longitude: 118.2,
+    latitude: 11.2,
+    altitude: 0,
+    speedKnots: 10,
+    headingDeg: 285,
+    tracks: [
+      { longitude: 118.8, latitude: 11.5, altitude: 0, speedKnots: 10, headingDeg: 280, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 118.5, latitude: 11.3, altitude: 0, speedKnots: 10, headingDeg: 283, timestamp: '2026-08-25 14:30:00' },
+      { longitude: 118.2, latitude: 11.2, altitude: 0, speedKnots: 10, headingDeg: 285, timestamp: '2026-08-25 15:20:00' }
+    ],
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
   }
 ]
 
