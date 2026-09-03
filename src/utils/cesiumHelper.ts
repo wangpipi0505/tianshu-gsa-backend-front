@@ -1490,6 +1490,7 @@ export class CesiumController {
 
   public applyTargetClustering(targets: SituationTarget[]) {
     if (!this.viewer) return
+    const sceneStore = useSceneStore()
     this.clusterEntities.forEach((e) => this.viewer!.entities.remove(e))
     this.clusterEntities.clear()
     this.clusteredTargetIds.clear()
@@ -1501,6 +1502,8 @@ export class CesiumController {
     const groups: Array<{ members: SituationTarget[]; x: number; y: number }> = []
     targets.forEach((target) => {
       if (target.isHypothesis) return
+      // 图层树中被隐藏的目标不参与聚合，保证清空/隐藏后无残留聚合标牌
+      if (!sceneStore.isTargetVisible(target.id)) return
       const cartesian = Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
       const win =
         (Cesium.SceneTransforms as any).worldToWindowCoordinates?.(scene, cartesian) ||

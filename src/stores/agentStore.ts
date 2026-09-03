@@ -65,7 +65,10 @@ export const useAgentStore = defineStore('agent', () => {
       promptText.includes('阿曼湾') ||
       promptText.includes('焦作')
 
-    if (promptText.includes('构建') || promptText.includes('假设目标') || promptText.includes('态势场景')) {
+    // 南海与菲律宾方向场景构建优先匹配（专属模板）
+    if (promptText.includes('南海') || promptText.includes('菲律宾')) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_scs_construct
+    } else if (promptText.includes('构建') || promptText.includes('假设目标') || promptText.includes('态势场景')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_construct_patrol
     } else if (promptText.includes('清空') || promptText.includes('清屏') || promptText.includes('清除态势')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_clear_situations

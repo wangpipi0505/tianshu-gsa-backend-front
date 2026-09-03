@@ -9,7 +9,8 @@ import { MOCK_EVIDENCE_ITEMS } from '@/mock/mockIntelligence'
 export const FEATURED_PROMPTS = [
   { icon: '🔮', label: '未来态势预测与推演', prompt: '请推演分析敌重点战机 (VIPER-01) 从历史机动到未来 30 分钟的演变过程与威胁走向。' },
   { icon: '🚢', label: '我方主力舰艇战备状态', prompt: '我想看一下我方舰艇的当前信息和状态。' },
-  { icon: '🛡️', label: '中东波斯湾海空态势', prompt: '中东波斯湾与霍尔木兹海峡当前态势如何？' }
+  { icon: '🛡️', label: '中东波斯湾海空态势', prompt: '中东波斯湾与霍尔木兹海峡当前态势如何？' },
+  { icon: '🌊', label: '南海菲律宾态势构建', prompt: '构建我国南海与菲律宾方向的态势场景：我方维权巡逻编队与外军舰机对峙。' }
 ]
 
 export const CATEGORIZED_PROMPT_TEMPLATES = [
@@ -49,6 +50,13 @@ export const CATEGORIZED_PROMPT_TEMPLATES = [
     items: [
       '分析4级海况与雨雾气象对多源探测的影响，并进行环境误差融合补偿。',
       '针对重点目标发起低空超音速突防推演，并在地球上注入推演假设航线。'
+    ]
+  },
+  {
+    category: '🌊 南海与菲律宾方向',
+    items: [
+      '构建我国南海与菲律宾方向的态势场景：我方维权巡逻编队与外军舰机对峙。',
+      '查看南海与菲律宾方向的相关态势目标。'
     ]
   },
   {
@@ -785,7 +793,82 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
     }
   ],
 
-  // 场景 11：未识别意图兜底 (能力清单引导，避免答非所问)
+  // 场景 11：南海与菲律宾方向态势场景构建（智能助手构建模板）
+  scenario_scs_construct: [
+    {
+      id: 'MSG-USER-SCS-01',
+      sender: 'user',
+      content: '构建我国南海与菲律宾方向的态势场景：我方维权巡逻编队与外军舰机对峙。',
+      timestamp: '2026-08-25 15:35:10'
+    },
+    {
+      id: 'MSG-AGENT-SCS-01',
+      sender: 'agent',
+      content: `已解析您的**态势场景构建**意图（南海与菲律宾方向）：
+
+- **构建对象一**：🚢 我方南海维权巡逻编队（116.2°E, 14.8°N，航向 160°）；
+- **构建对象二**：🚢 外军导弹驱逐舰（118.6°E, 13.5°N，向西逼近）；
+
+两张构建草稿卡已就绪，确认后目标将写入**场景工作内容层**并上图，可与既有态势同场研判。`,
+      timestamp: '2026-08-25 15:35:18',
+      intentUnderstanding: {
+        rawPrompt: '构建我国南海与菲律宾方向的态势场景：我方维权巡逻编队与外军舰机对峙。',
+        intentCategory: 'build_scene',
+        intentTitle: '南海与菲律宾方向态势场景构建（双目标对峙）',
+        targetScope: ['我方南海维权巡逻编队', '外军导弹驱逐舰'],
+        spatialScope: '南海海域 / 菲律宾以西',
+        timeScope: '实时构建',
+        actionSequence: ['解析构建意图与对象', '生成两张构建草稿卡', '确认后写入场景工作内容层并上图'],
+        confidence: 0.97,
+        isConfirmed: true
+      },
+      ragSteps: [],
+      reasoningTraces: [],
+      evidenceChain: [],
+      actionCards: [
+        {
+          id: 'ACT-SCS-01',
+          actionType: 'construct_target',
+          title: '🚢 构建我方南海维权巡逻编队',
+          description: '在 116.2°E, 14.8°N 构建我方巡逻编队目标（工作内容层）',
+          previewPayload: {
+            name: '我方南海维权巡逻编队',
+            objectType: 'warship',
+            affiliation: 'friend',
+            longitude: 116.2,
+            latitude: 14.8,
+            altitude: 0,
+            speedKnots: 18,
+            remark: '南海维权巡逻编队（智能助手构建）'
+          },
+          executed: false,
+          reversible: true,
+          basisExplanation: '基于南海与菲律宾方向态势场景构建意图'
+        },
+        {
+          id: 'ACT-SCS-02',
+          actionType: 'construct_target',
+          title: '🚢 构建外军导弹驱逐舰目标',
+          description: '在 118.6°E, 13.5°N 构建外军驱逐舰目标（工作内容层），与我方编队形成对峙态势',
+          previewPayload: {
+            name: '外军导弹驱逐舰',
+            objectType: 'warship',
+            affiliation: 'foe',
+            longitude: 118.6,
+            latitude: 13.5,
+            altitude: 0,
+            speedKnots: 22,
+            remark: '南海对峙外军舰艇（智能助手构建）'
+          },
+          executed: false,
+          reversible: true,
+          basisExplanation: '基于南海对峙态势构建意图'
+        }
+      ]
+    }
+  ],
+
+  // 场景 12：未识别意图兜底 (能力清单引导，避免答非所问)
   scenario_fallback: [
     {
       id: 'MSG-USER-FALLBACK',

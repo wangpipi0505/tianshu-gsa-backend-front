@@ -587,6 +587,89 @@ export const MOCK_TARGETS: SituationTarget[] = [
     conflicts: [],
     evidenceIds: ['E-ME-003'],
     createdProductVersion: 'PROD-SITUATION-MIDEAST-v2.1'
+  },
+
+  // ========================== 【战区三：南海与菲律宾方向】 ==========================
+  {
+    id: 'Target-SCS-01',
+    codeName: '我方南海维权巡逻编队',
+    callsign: 'PLAN-SCS-058 (编队)',
+    type: 'warship',
+    affiliation: 'friend',
+    status: 'active',
+    longitude: 116.2,
+    latitude: 14.8,
+    altitude: 0,
+    speedKnots: 18,
+    headingDeg: 160,
+    tracks: [
+      { longitude: 115.6, latitude: 13.9, altitude: 0, speedKnots: 16, headingDeg: 155, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 115.9, latitude: 14.4, altitude: 0, speedKnots: 18, headingDeg: 158, timestamp: '2026-08-25 14:00:00' },
+      { longitude: 116.2, latitude: 14.8, altitude: 0, speedKnots: 18, headingDeg: 160, timestamp: '2026-08-25 15:20:00' }
+    ],
+    operationalStatus: {
+      readinessLevel: '一级战备 (南海维权巡航)',
+      missionTask: '南海常态化维权巡逻与重点岛礁周边警戒',
+      sensorMode: '对海/对空搜索雷达开机',
+      datalinkState: '卫通数据链在线',
+      fuelOrHealthPercent: 88
+    },
+    sensorCoverage: {
+      radarRangeKm: 260,
+      scanAngleDeg: 360,
+      coneColor: '#00d2ff',
+      isScanning: true
+    },
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-02',
+    codeName: '外军导弹驱逐舰',
+    callsign: 'DDG-91 (菲西海域)',
+    type: 'warship',
+    affiliation: 'foe',
+    status: 'active',
+    longitude: 118.6,
+    latitude: 13.5,
+    altitude: 0,
+    speedKnots: 22,
+    headingDeg: 265,
+    tracks: [
+      { longitude: 119.4, latitude: 13.1, altitude: 0, speedKnots: 20, headingDeg: 270, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 119.0, latitude: 13.3, altitude: 0, speedKnots: 21, headingDeg: 268, timestamp: '2026-08-25 14:00:00' },
+      { longitude: 118.6, latitude: 13.5, altitude: 0, speedKnots: 22, headingDeg: 265, timestamp: '2026-08-25 15:20:00' }
+    ],
+    radarFeatures: {
+      rcsMeanSqMeters: 3200,
+      dopplerShiftHz: 90,
+      frequencyBand: 'S波段对海搜索雷达',
+      pulseWidthUs: 40
+    },
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-03',
+    codeName: '菲律宾海警巡逻船',
+    callsign: 'PCG-4401',
+    type: 'warship',
+    affiliation: 'neutral',
+    status: 'active',
+    longitude: 119.6,
+    latitude: 12.6,
+    altitude: 0,
+    speedKnots: 14,
+    headingDeg: 230,
+    tracks: [
+      { longitude: 119.9, latitude: 12.9, altitude: 0, speedKnots: 12, headingDeg: 235, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 119.6, latitude: 12.6, altitude: 0, speedKnots: 14, headingDeg: 230, timestamp: '2026-08-25 15:20:00' }
+    ],
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
   }
 ]
 
