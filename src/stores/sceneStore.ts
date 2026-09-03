@@ -134,6 +134,7 @@ export const useSceneStore = defineStore('scene', () => {
 
     const pkg = thematicPackages.value.find((p) => p.theater === 'taiwan') || thematicPackages.value[0]
     if (pkg) {
+      pkg.visible = true
       if (!pkg.workItems) pkg.workItems = []
       if (!pkg.workItems.some((w) => w.id === target.id)) {
         pkg.workItems.push({
