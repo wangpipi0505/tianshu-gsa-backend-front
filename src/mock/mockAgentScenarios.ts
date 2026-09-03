@@ -75,12 +75,41 @@ export const CATEGORIZED_PROMPT_TEMPLATES = [
   {
     category: '🧩 态势场景构建',
     items: [
-      '在海峡东侧构建一个我方空中巡逻阵位目标'
+      '在海峡东侧构建一个我方空中巡逻阵位目标',
+      '构建我国南海与菲律宾方向的态势场景：我方维权巡逻编队与外军舰机对峙。'
+    ]
+  },
+  {
+    category: '📊 数据融合与资产发布',
+    items: [
+      '发布新资产版本，生成数据产品包装。',
+      '查看候选关联确认列表并确认融合结果。'
+    ]
+  },
+  {
+    category: '📈 统计分析与研判',
+    items: [
+      '切换到"仅真实态势"口径进行统计分析。',
+      '对重点目标发起事件前后影响对比分析。',
+      '将当前分析结果沉淀为专题研判成果。'
+    ]
+  },
+  {
+    category: '🧠 领域本体与知识检索',
+    items: [
+      '在知识图谱中搜索目标本体相关概念。',
+      '查看南海方向态势场景的领域本体定义。'
     ]
   }
 ]
 
-export const PRESET_PROMPTS = FEATURED_PROMPTS.map((p) => p.prompt)
+/** 路由 → 模板分组优先级映射（排序用，命中的分组排前面） */
+export const PAGE_TEMPLATE_PRIORITY: Record<string, string[]> = {
+  '/workbench':  ['🔮 未来预测与时空演化', '战备与重点实体检索', '🌊 南海与菲律宾方向', '🕐 单态切片与历史复盘', '态势要素管理'],
+  '/fusion':     ['📊 数据融合与资产发布', '🧩 态势场景构建', '战备与重点实体检索'],
+  '/analytics':  ['📈 统计分析与研判', '🧩 态势场景构建', '🕐 单态切片与历史复盘'],
+  '/ontology':   ['🧠 领域本体与知识检索', '🧩 态势场景构建']
+}
 
 export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
   default: [

@@ -66,7 +66,7 @@
             </el-button>
             <template #dropdown>
               <el-dropdown-menu class="agent-template-dropdown">
-                <template v-for="(cat, cIdx) in CATEGORIZED_PROMPT_TEMPLATES" :key="cat.category">
+                <template v-for="(cat, cIdx) in sortedTemplates" :key="cat.category">
                   <el-dropdown-item disabled class="category-header-item">
                     {{ cat.category }}
                   </el-dropdown-item>
@@ -201,12 +201,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { marked } from 'marked'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
 import { useAgentStore } from '@/stores/agentStore'
-import { FEATURED_PROMPTS, CATEGORIZED_PROMPT_TEMPLATES } from '@/mock/mockAgentScenarios'
+import { FEATURED_PROMPTS, CATEGORIZED_PROMPT_TEMPLATES, PAGE_TEMPLATE_PRIORITY } from '@/mock/mockAgentScenarios'
+import { useRoute } from 'vue-router'
 import IntentPreviewCard from '@/components/agent/IntentPreviewCard.vue'
 import RagReasoningTree from '@/components/agent/RagReasoningTree.vue'
 import AgentActionCard from '@/components/agent/AgentActionCard.vue'
@@ -266,6 +267,17 @@ function renderMarkdown(content: string): string {
 }
 
 const agentStore = useAgentStore()
+const route = useRoute()
+
+/** 按当前路由对模板分组排序：业务相关的排前面 */
+const sortedTemplates = computed(() => {
+  const priority = PAGE_TEMPLATE_PRIORITY[route.path] || []
+  const idx = (cat: { category: string }) => {
+    const i = priority.findIndex((p) => cat.category.includes(p))
+    return i >= 0 ? i : priority.length
+  }
+  return [...CATEGORIZED_PROMPT_TEMPLATES].sort((a, b) => idx(a) - idx(b))
+})
 const inputPrompt = ref('')
 const messagesStreamRef = ref<HTMLElement | null>(null)
 
