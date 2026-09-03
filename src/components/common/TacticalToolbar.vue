@@ -135,6 +135,7 @@
     >
       <el-tooltip content="查看与管理关注对象集" placement="bottom">
         <el-button size="small" plain @click="emit('open-watch-list')">
+          <el-icon><Star /></el-icon>
           <span>关注对象集</span>
         </el-button>
       </el-tooltip>
@@ -171,6 +172,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Menu,
   DeleteFilled,
+  Star,
   Compass,
   Crop,
   EditPen,

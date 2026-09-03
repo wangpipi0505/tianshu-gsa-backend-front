@@ -13,7 +13,6 @@
         :class="{ 'agent-open': agentStore.isOpen }"
       >
         <div class="quick-action-group">
-          <SceneStatusStrip @open-scene-modal="sceneDrawerRef?.open()" />
           <el-button v-if="identityStore.canDo('simulation')" type="warning" size="small" @click="onOpenSimulation">
             <el-icon><VideoPlay /></el-icon>
             <span>发起红蓝推演</span>
@@ -32,12 +31,15 @@
           @open-construct-form="onOpenConstruct"
           @open-watch-list="watchListRef?.open()"
         />
-
-        <WatchListPanel ref="watchListRef" />
       </div>
 
       <!-- 4D 时空演变三态切片对比全景透视面板 (当开启三态对比时动态滑入) -->
       <TemporalComparisonHUD />
+
+      <!-- 底部左侧：当前场景信息（与右下底图切换器同一行，左右分布） -->
+      <div class="scene-info-anchor" :class="{ 'agent-open': agentStore.isOpen }">
+        <SceneStatusStrip @open-scene-modal="sceneDrawerRef?.open()" />
+      </div>
 
       <!-- 底部时间轴控制器 (响应助手展开/折叠动态靠边) -->
       <div
@@ -75,6 +77,9 @@
     <ConstructFormModal ref="constructFormRef" />
     <SpatialSearchDrawer ref="searchDrawerRef" />
     <VersionUpdateBanner />
+
+    <!-- 关注对象集面板（浮层，由工具条/快捷入口唤起） -->
+    <WatchListPanel ref="watchListRef" />
   </div>
 </template>
 
@@ -180,6 +185,17 @@ defineExpose({
 
       &.agent-open {
         right: calc(clamp(340px, 25vw, 440px) + 26px);
+
+        // 助手展开时按钮收敛为图标模式，保证工具条完全让开研判面板
+        :deep(.quick-action-group .el-button > span:not(.el-icon)),
+        :deep(.tactical-toolbar .el-button > span:not(.el-icon)) {
+          display: none;
+        }
+
+        :deep(.quick-action-group .el-button),
+        :deep(.tactical-toolbar .el-button) {
+          padding: 8px 9px;
+        }
       }
 
       .quick-action-group, .tactical-toolbar {
@@ -200,6 +216,17 @@ defineExpose({
       }
     }
 
+    .scene-info-anchor {
+      position: absolute;
+      left: 16px;
+      bottom: 96px;
+      z-index: 15;
+
+      &.agent-open {
+        left: calc(clamp(340px, 25vw, 440px) + 26px);
+      }
+    }
+
     .workbench-bottom-timeline {
       position: absolute;
       bottom: 14px;
@@ -210,6 +237,17 @@ defineExpose({
 
       &.agent-open {
         right: calc(clamp(340px, 25vw, 440px) + 26px);
+
+        // 助手展开时按钮收敛为图标模式，保证工具条完全让开研判面板
+        :deep(.quick-action-group .el-button > span:not(.el-icon)),
+        :deep(.tactical-toolbar .el-button > span:not(.el-icon)) {
+          display: none;
+        }
+
+        :deep(.quick-action-group .el-button),
+        :deep(.tactical-toolbar .el-button) {
+          padding: 8px 9px;
+        }
       }
 
       @media (max-width: 1440px) {
