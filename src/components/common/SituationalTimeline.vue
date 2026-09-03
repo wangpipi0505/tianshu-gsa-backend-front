@@ -89,6 +89,21 @@
         <el-button size="small" type="primary" plain @click="jumpToFutureEnd" :title="`跳至未来推演终点 ${endLabel}`">
           <span>未来 {{ endLabel }}</span>
         </el-button>
+
+        <!-- 回放时刻快捷转化（方案 5.2.4） -->
+        <el-dropdown trigger="click" @command="onMomentCommand">
+          <el-button size="small" type="warning" plain>
+            <span>以此时刻</span>
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="analysis">转为分析条件</el-dropdown-item>
+              <el-dropdown-item command="annotation">转为场景标注</el-dropdown-item>
+              <el-dropdown-item command="agent">询问智能助手</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </div>
 
@@ -137,10 +152,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useSituationStore } from '@/stores/situationStore'
+import { useSceneStore } from '@/stores/sceneStore'
+import { useAnalysisStore } from '@/stores/analysisStore'
+import { useAgentStore } from '@/stores/agentStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import { formatHourLabel, formatLocalDateTime, parseTime, stepMsFromExtent } from '@/utils/timeRange'
 import { ElMessage } from 'element-plus'
+import { ArrowDown } from '@element-plus/icons-vue'
+
+const router = useRouter()
+const analysisStore = useAnalysisStore()
+const agentStore = useAgentStore()
 import {
   VideoPlay,
   VideoPause,
@@ -150,6 +174,7 @@ import {
 } from '@element-plus/icons-vue'
 
 const situationStore = useSituationStore()
+const sceneStore = useSceneStore()
 
 const extent = computed(() => situationStore.timelineExtent)
 const startLabel = computed(() => formatHourLabel(extent.value.startMs))
@@ -210,6 +235,44 @@ function jumpToNow() {
 function jumpToFutureEnd() {
   situationStore.seekTime(extent.value.end)
 }
+
+  /** 回放时刻快捷转化：分析条件 / 场景标注 / 智能助手提问（方案 5.2.4） */
+  function onMomentCommand(command: string | number | object) {
+    const now = situationStore.currentPlaybackTime
+    if (command === 'analysis') {
+      const cur = new Date(now).getTime()
+      const preset: [string, string] = [
+        formatLocalDateTime(new Date(cur - 15 * 60000)),
+        formatLocalDateTime(new Date(cur + 15 * 60000))
+      ]
+      analysisStore.applyTimePreset(preset)
+      router.push('/analytics')
+      ElMessage.success(`已将时刻 ${now.split(' ')[1]} 附近的时间窗预置为分析条件`)
+      return
+    }
+    if (command === 'annotation') {
+      ElMessage.info('请在地球上点击位置完成场景标注（右键取消）')
+      cesiumController.startPickPlacement((lon, lat) => {
+        sceneStore.addPlotWorkItem({
+          id: `PLOT-${Date.now()}`,
+          type: 'annotation',
+          label: `场景标注 @${now.split(' ')[1]}`,
+          isHypothesis: true,
+          createdBy: '当前用户（回放时刻标注）',
+          basis: `回放时刻 ${now} 的场景标注`,
+          payload: { lon, lat, alt: 0, text: `场景标注 @${now.split(' ')[1]}` },
+          createdAt: new Date().toLocaleString()
+        })
+        ElMessage.success('场景标注已保存至工作内容层')
+      })
+      return
+    }
+    if (command === 'agent') {
+      agentStore.openAgent()
+      agentStore.sendMessage(`请基于当前时刻 ${now} 的态势进行分析研判，重点说明各目标的动向与威胁变化。`)
+      ElMessage.success('已将当前时刻态势作为上下文发送给智能助手')
+    }
+  }
 
 function onToggleTemporalSlices() {
   situationStore.toggleTemporalSlices()

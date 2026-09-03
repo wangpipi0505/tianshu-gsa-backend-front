@@ -137,6 +137,8 @@ function updateCesiumScene(mode: 'full' | 'positions' = 'full') {
     situationStore.targets,
     situationStore.selectedEventId
   )
+  // 已入库的标绘与标注工作内容
+  cesiumController.renderPlots(sceneStore.workContents)
   // 三态切片图层：三个时间切面独立显隐，时间轴当前相位切片点亮
   cesiumController.renderTemporalSlices(situationStore.targets, {
     visible: situationStore.showTemporalSlices,
@@ -255,6 +257,7 @@ watch(
     situationStore.highlightedTargetIds,
     situationStore.dimNonHighlighted,
     sceneStore.contentLayers,
+    sceneStore.workContents,
     sceneStore.thematicPackages
   ],
   () => {

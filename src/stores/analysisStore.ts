@@ -250,6 +250,11 @@ export const useAnalysisStore = defineStore('analysis', () => {
     await compute()
   }
 
+  /** 时间窗预置（来自回放时刻快捷转化） */
+  function applyTimePreset(range: [string, string]) {
+    currentModel.value.timeWindow = [...range]
+  }
+
   function setObjectRange(ids: string[], label = '') {
     objectRangeTargetIds.value = [...ids]
     objectRangeLabel.value = label
@@ -298,6 +303,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     compute,
     setSourceScope,
     setObjectRange,
+    applyTimePreset,
     objectRangeTargetIds,
     objectRangeLabel,
     publishCurrentThematic,

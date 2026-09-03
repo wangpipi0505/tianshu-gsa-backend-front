@@ -55,6 +55,7 @@
         </div>
         <div class="s-actions">
           <el-button size="small" type="primary" plain @click="applyScene(s)">载入该场景</el-button>
+          <el-button size="small" plain @click="loadCurrentThematic(s)">加载当前专题</el-button>
           <el-button size="small" plain @click="openDuplicate(s)">复制派生</el-button>
         </div>
       </div>
@@ -160,6 +161,18 @@ function onImportFile(e: Event) {
     })
     .catch(() => ElMessage.error('场景文件读取失败'))
 }
+
+  /** 将当前可见的专题包挂载为目标场景的研判专题层（方案 5.2.5 专题跨场景加载） */
+  function loadCurrentThematic(s: SituationalScene) {
+    const target = sceneStore.sceneList.find((x) => x.id === s.id)
+    if (!target) {
+      ElMessage.warning('目标场景不存在')
+      return
+    }
+    const ids = sceneStore.thematicPackages.filter((p) => p.visible).map((p) => p.id)
+    target.thematicPackageIds = ids
+    ElMessage.success(`已将 ${ids.length} 个专题包挂载为场景「${s.name}」的研判专题层`)
+  }
 
 function openDuplicate(s: SituationalScene) {
   duplicateSourceId.value = s.id

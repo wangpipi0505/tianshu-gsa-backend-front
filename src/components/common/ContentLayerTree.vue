@@ -117,7 +117,7 @@
                         v-model="target.visible"
                         @change="onThematicTargetCheck(pkg, target)"
                       />
-                      <span class="node-title target-name" :style="{ color: target.color }">
+                      <span class="node-title target-name" :style="{ color: target.color }" :title="factInfoText(target.id)">
                         {{ target.name }}
                       </span>
                     </div>
@@ -262,7 +262,7 @@
                       @change="onThematicItemCheck(pkg)"
                     />
                     <span class="work-icon">📐</span>
-                    <span class="node-title work-name" :style="{ color: w.color }">{{ w.name }}</span>
+                    <span class="node-title work-name" :style="{ color: w.color }" :title="workItemInfoText(w.id)">{{ w.name }}</span>
                   </div>
                   <el-button
                     v-if="w.id.startsWith('CONSTRUCT-')"
@@ -303,7 +303,7 @@
                 v-model="tier.visible"
                 @change="onNodeCheckChange(tier)"
               />
-              <span class="node-title tier-title" :style="{ color: tier.color }">{{ tier.name }}</span>
+              <span class="node-title tier-title" :style="{ color: tier.color }" :title="tierInfoText(tier)">{{ tier.name }}</span>
             </div>
 
             <div class="node-right">
@@ -384,7 +384,7 @@
                         v-model="entity.visible"
                         @change="onNodeCheckChange(entity)"
                       />
-                      <span class="node-title entity-title" :style="{ color: entity.color || '#f0f6fc' }">
+                      <span class="node-title entity-title" :style="{ color: entity.color || '#f0f6fc' }" :title="factInfoText(entity.targetId)">
                         {{ entity.name }}
                       </span>
                     </div>
@@ -520,6 +520,23 @@ function onFeatureCheckChange(entityNode: LayerTreeNode) {
     entityNode.visible = entityNode.children.some((c) => c.visible)
   }
   sceneStore.persistVisibility()
+}
+
+// ---- 图层信息面板（悬停展示来源与口径，方案 5.2.2） ----
+function factInfoText(targetId?: string): string {
+  if (!targetId) return ''
+  return `事实内容 · 来源产品: ${sceneStore.activeScene.productVersionId} · 数据时间: ${sceneStore.activeScene.timeWindow[0]} ~ ${sceneStore.activeScene.timeWindow[1]}`
+}
+
+function tierInfoText(tier: LayerTreeNode): string {
+  return `共 ${countLeaves(tier)} 项要素 · 数据时间: ${sceneStore.activeScene.timeWindow[0]} ~ ${sceneStore.activeScene.timeWindow[1]}`
+}
+
+function workItemInfoText(workItemId: string): string {
+  const w = sceneStore.workContents.find((x) => x.id === workItemId)
+  if (!w) return '工作内容'
+  const mode = (w as { produceMode?: string }).produceMode === 'agent' ? '智能构建' : '手动构建'
+  return `工作内容 · 创建者: ${w.createdBy} · 产生方式: ${mode} · ${w.createdAt}`
 }
 
 function countLeaves(node: LayerTreeNode): number {

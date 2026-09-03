@@ -8,6 +8,7 @@ import type { SituationTarget, SpatialRelation, SituationRegion, BattlefieldEnvi
 import { useSceneStore } from '@/stores/sceneStore'
 import { useSituationStore } from '@/stores/situationStore'
 import { generateAttackArrowPoints } from '@/utils/militaryPlotting'
+import type { WorkContent } from '@/types/scene'
 
 export type BasemapType = 'satellite' | 'dark' | 'street'
 
@@ -26,6 +27,7 @@ export class CesiumController {
   private measureEntities: Cesium.Entity[] = []
   private eventEntities: Map<string, Cesium.Entity> = new Map()
   private eventLinkEntities: Map<string, Cesium.Entity> = new Map()
+  private plotEntities: Map<string, Cesium.Entity> = new Map()
   private clusterEntities: Map<string, Cesium.Entity> = new Map()
   private highlightEntities: Map<string, Cesium.Entity> = new Map()
 
@@ -291,7 +293,9 @@ export class CesiumController {
     }, Cesium.ScreenSpaceEventType.RIGHT_CLICK)
   }
 
-  public startTacticalPlot(onCompleted?: () => void) {
+  public startTacticalPlot(
+    onCompleted?: (geometry: { origin: [number, number]; polygon: Array<[number, number]> }) => void
+  ) {
     if (!this.viewer) return
     this.clearActiveHandler()
 
@@ -305,25 +309,83 @@ export class CesiumController {
         points.push([Cesium.Math.toDegrees(carto.longitude), Cesium.Math.toDegrees(carto.latitude)])
 
         if (points.length === 2) {
-          const arrowPolygonCoords = generateAttackArrowPoints(points[0], points[1])
-          const hierarchy = arrowPolygonCoords.map((c) => Cesium.Cartesian3.fromDegrees(c[0], c[1]))
+          const polygon = generateAttackArrowPoints(points[0], points[1])
+          this.clearActiveHandler()
+          if (onCompleted) onCompleted({ origin: points[0], polygon })
+        }
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+  }
 
-          const arrowEntity = this.viewer!.entities.add({
+  /** 渲染已入库的标绘与标注工作内容（显隐受工作内容图层树控制，随增删自动同步） */
+  public renderPlots(workContents: WorkContent[]) {
+    if (!this.viewer) return
+    const sceneStore = useSceneStore()
+    const keep = new Set<string>()
+
+    workContents.forEach((wc) => {
+      if (wc.type !== 'tactical_arrow' && wc.type !== 'annotation') return
+      keep.add(wc.id)
+      const visible = sceneStore.isWorkItemVisible(wc.id)
+      let entity = this.plotEntities.get(wc.id)
+      if (!entity) {
+        if (wc.type === 'tactical_arrow' && wc.payload?.geometry) {
+          const hierarchy = new Cesium.PolygonHierarchy(
+            (wc.payload.geometry as Array<[number, number]>).map((c) =>
+              Cesium.Cartesian3.fromDegrees(c[0], c[1])
+            )
+          )
+          entity = this.viewer!.entities.add({
+            id: `PLOT_${wc.id}`,
+            show: visible,
             polygon: {
-              hierarchy: new Cesium.PolygonHierarchy(hierarchy),
+              hierarchy,
               material: Cesium.Color.fromCssColorString('#ff4d4f').withAlpha(0.55),
               outline: true,
               outlineColor: Cesium.Color.fromCssColorString('#ff4d4f'),
               outlineWidth: 2.5
             }
           })
-          this.measureEntities.push(arrowEntity)
-
-          if (onCompleted) onCompleted()
-          this.clearActiveHandler()
+        } else if (wc.type === 'annotation' && wc.payload?.lon !== undefined) {
+          const pos = Cesium.Cartesian3.fromDegrees(wc.payload.lon, wc.payload.lat, wc.payload.alt ?? 0)
+          entity = this.viewer!.entities.add({
+            id: `PLOT_${wc.id}`,
+            show: visible,
+            position: pos,
+            point: {
+              pixelSize: 10,
+              color: Cesium.Color.fromCssColorString('#faad14'),
+              outlineColor: Cesium.Color.WHITE,
+              outlineWidth: 2,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
+            },
+            label: {
+              text: wc.payload.text || wc.label,
+              font: '12px sans-serif',
+              fillColor: Cesium.Color.fromCssColorString('#faad14'),
+              outlineColor: Cesium.Color.BLACK,
+              outlineWidth: 3,
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              showBackground: true,
+              backgroundColor: Cesium.Color.fromCssColorString('rgba(8,16,28,0.9)'),
+              pixelOffset: new Cesium.Cartesian2(0, -24),
+              disableDepthTestDistance: Number.POSITIVE_INFINITY
+            }
+          })
         }
+        if (entity) this.plotEntities.set(wc.id, entity)
+        return
       }
-    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+      entity.show = visible
+    })
+
+    // 清理已删除的标绘 / 标注
+    this.plotEntities.forEach((entity, id) => {
+      if (!keep.has(id)) {
+        this.viewer!.entities.remove(entity)
+        this.plotEntities.delete(id)
+      }
+    })
   }
 
   public clearMeasurements() {

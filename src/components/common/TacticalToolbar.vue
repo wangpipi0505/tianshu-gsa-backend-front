@@ -255,10 +255,23 @@ function toggleTool(tool: string) {
         ElMessage.success(`测面完成：多边形面积 ${sqKm.toFixed(1)} 平方公里`)
       })
     } else if (tool === 'plot') {
-      ElMessage.success('已开启战术进攻箭头标绘：请在地球上点击起点和方向终点')
-      cesiumController.startTacticalPlot(() => {
+      ElMessage.success('已开启战术进攻箭头标绘：请在地球上点击起点和方向终点，完成后自动保存至场景工作内容')
+      cesiumController.startTacticalPlot((geometry) => {
         activeTool.value = null
-        ElMessage.success('战术进攻箭头标绘完成！箭头为临时叠加要素，可通过【清除标绘】移除（暂不随场景档案保存）')
+        sceneStore.addPlotWorkItem({
+          id: `PLOT-${Date.now()}`,
+          type: 'tactical_arrow',
+          label: '战术进攻箭头',
+          isHypothesis: true,
+          createdBy: '当前用户（手动标绘）',
+          basis: '战术标绘',
+          payload: {
+            geometry: geometry.polygon,
+            origin: geometry.origin
+          },
+          createdAt: new Date().toLocaleString()
+        })
+        ElMessage.success('标绘已生成并保存至场景工作内容，可在图层树中显隐或删除')
       })
     }
   }

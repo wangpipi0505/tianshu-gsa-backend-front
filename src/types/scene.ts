@@ -12,7 +12,7 @@ export interface CameraBookmark {
   rollDeg: number
 }
 
-export type WorkContentType = 'tactical_arrow' | 'defense_zone' | 'simulated_track' | 'constructed_target'
+export type WorkContentType = 'tactical_arrow' | 'defense_zone' | 'simulated_track' | 'constructed_target' | 'annotation'
 
 export interface WorkContent {
   id: string
@@ -139,4 +139,6 @@ export interface SituationalScene {
   createdAt: string
   updatedAt: string
   isArchive: boolean
+  /** 该场景挂载的专题包（跨场景加载后记录） */
+  thematicPackageIds?: string[]
 }

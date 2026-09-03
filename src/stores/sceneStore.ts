@@ -138,6 +138,36 @@ export const useSceneStore = defineStore('scene', () => {
     schedulePersistVisibility()
   }
 
+  /** 标绘 / 标注等工作内容入库（含工作图层树节点），显隐由 workItemId 控制 */
+  function addPlotWorkItem(work: WorkContent) {
+    workContents.value.push(work)
+    const workTier = contentLayers.value.find((l) => l.id === 'LAYER-WORK')
+    if (workTier) {
+      workTier.visible = true
+      workTier.expanded = true
+      if (!workTier.children) workTier.children = []
+      workTier.children.push({
+        id: `WORK-NODE-${work.id}`,
+        name: work.label,
+        workItemId: work.id,
+        nodeType: 'work_item',
+        visible: true,
+        color: work.type === 'annotation' ? '#faad14' : '#ff4d4f'
+      })
+    }
+    schedulePersistVisibility()
+  }
+
+  /** 移除标绘 / 标注工作内容（三段同删） */
+  function removePlotWorkItem(id: string) {
+    workContents.value = workContents.value.filter((w) => w.id !== id)
+    const workTier = contentLayers.value.find((l) => l.id === 'LAYER-WORK')
+    if (workTier?.children) {
+      workTier.children = workTier.children.filter((c) => c.workItemId !== id)
+    }
+    schedulePersistVisibility()
+  }
+
   function removeConstructedWorkItem(targetId: string) {
     workContents.value = workContents.value.filter(
       (w) => w.relatedFactTargetId !== targetId && w.id !== `WORK-${targetId}`
@@ -628,6 +658,8 @@ export const useSceneStore = defineStore('scene', () => {
     showTargetAndFeatures,
     showOnlyTargetsAndFeatures,
     addThematicAsset,
+    addPlotWorkItem,
+    removePlotWorkItem,
     importScene,
     duplicateScene,
     hideAllSituationLayers,
