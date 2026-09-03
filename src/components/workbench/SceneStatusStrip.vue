@@ -9,35 +9,15 @@
       </span>
     </div>
 
-    <!-- 数据产品刷新状态（点击刷新） -->
-    <el-tag size="small" :type="freshnessTag" class="freshness-tag" @click="onRefresh">{{ freshnessText }}</el-tag>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
-import { useSituationStore } from '@/stores/situationStore'
-import { useFusionStore } from '@/stores/fusionStore'
 import { FolderOpened } from '@element-plus/icons-vue'
 
 const emit = defineEmits(['open-scene-modal'])
 const sceneStore = useSceneStore()
-const situationStore = useSituationStore()
-const fusionStore = useFusionStore()
-
-const freshnessText = computed(() => {
-  const prod = fusionStore.productReleases[0]
-  const tp = prod?.statement?.lastUpdated || situationStore.currentPlaybackTime
-  const status = fusionStore.refreshStatus === 'updating' ? '更新中' : fusionStore.refreshStatus === 'failed' ? '失败' : '最新'
-  return `${status} · 数据时点 ${tp} · ${fusionStore.confirmMode}`
-})
-const freshnessTag = computed(() =>
-  fusionStore.refreshStatus === 'updating' ? 'warning' : fusionStore.refreshStatus === 'failed' ? 'danger' : 'success'
-)
-function onRefresh() {
-  void fusionStore.refreshLatest()
-}
 </script>
 
 <style scoped lang="scss">
@@ -91,8 +71,5 @@ function onRefresh() {
     }
   }
 
-  .freshness-tag {
-    cursor: pointer;
-  }
 }
 </style>

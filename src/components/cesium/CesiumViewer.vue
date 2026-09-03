@@ -308,7 +308,7 @@ onUnmounted(() => {
 
   .basemap-switcher {
     position: absolute;
-    bottom: 96px;
+    bottom: 106px;
     right: 16px;
     display: flex;
     gap: 6px;

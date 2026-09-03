@@ -185,17 +185,6 @@ defineExpose({
 
       &.agent-open {
         right: calc(clamp(340px, 25vw, 440px) + 26px);
-
-        // 助手展开时按钮收敛为图标模式，保证工具条完全让开研判面板
-        :deep(.quick-action-group .el-button > span:not(.el-icon)),
-        :deep(.tactical-toolbar .el-button > span:not(.el-icon)) {
-          display: none;
-        }
-
-        :deep(.quick-action-group .el-button),
-        :deep(.tactical-toolbar .el-button) {
-          padding: 8px 9px;
-        }
       }
 
       .quick-action-group, .tactical-toolbar {
@@ -219,7 +208,7 @@ defineExpose({
     .scene-info-anchor {
       position: absolute;
       left: 16px;
-      bottom: 96px;
+      bottom: 106px;
       z-index: 15;
 
       &.agent-open {
@@ -237,17 +226,6 @@ defineExpose({
 
       &.agent-open {
         right: calc(clamp(340px, 25vw, 440px) + 26px);
-
-        // 助手展开时按钮收敛为图标模式，保证工具条完全让开研判面板
-        :deep(.quick-action-group .el-button > span:not(.el-icon)),
-        :deep(.tactical-toolbar .el-button > span:not(.el-icon)) {
-          display: none;
-        }
-
-        :deep(.quick-action-group .el-button),
-        :deep(.tactical-toolbar .el-button) {
-          padding: 8px 9px;
-        }
       }
 
       @media (max-width: 1440px) {
