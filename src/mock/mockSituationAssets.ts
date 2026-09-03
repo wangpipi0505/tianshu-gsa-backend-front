@@ -786,6 +786,28 @@ export const MOCK_RELATIONS: SpatialRelation[] = [
     confidence: 0.93,
     description: '霍尔木兹海峡北岸沿海防空阵地雷达对海峡水道保持超视距立体警戒封锁',
     isActive: true
+  },
+  {
+    id: 'REL-SCS-01',
+    relationType: 'threat',
+    relationName: '【海上跟踪监视】外军驱逐舰对我编队威胁线',
+    sourceTargetId: 'Target-SCS-02',
+    targetTargetId: 'Target-SCS-01',
+    spatialDistanceKm: 180.0,
+    confidence: 0.88,
+    description: '外军导弹驱逐舰在南海菲律宾以西海域向西机动逼近，对我方巡逻编队构成跟踪监视威胁',
+    isActive: true
+  },
+  {
+    id: 'REL-SCS-02',
+    relationType: 'coordination',
+    relationName: '【海空协同警戒】雷达站与巡逻编队协同线',
+    sourceTargetId: 'Target-SCS-04',
+    targetTargetId: 'Target-SCS-01',
+    spatialDistanceKm: 320.0,
+    confidence: 0.92,
+    description: '南海岛礁雷达站为巡逻编队提供远程对空对海警戒信息支援',
+    isActive: true
   }
 ]
 
@@ -888,6 +910,22 @@ export const MOCK_REGIONS: SituationRegion[] = [
     color: '#00d2ff',
     opacity: 0.25,
     description: '【中东蓝区含义】：我方052D型焦作舰护航编队在阿曼湾海域的相控阵雷达重点空海防空监视与商船安全护航走廊。'
+  },
+  {
+    id: 'REG-SCS-01',
+    name: '【南海管控区】南海维权巡逻与对峙警戒海域',
+    category: 'patrol_area',
+    coordinates: [
+      [112.0, 8.0],
+      [120.0, 8.0],
+      [120.0, 18.0],
+      [112.0, 18.0]
+    ],
+    minAltitude: 0,
+    maxAltitude: 15000,
+    color: '#00d2ff',
+    opacity: 0.12,
+    description: '南海维权巡逻与对峙警戒海域，覆盖我方巡逻编队活动区域与外军舰机抵近侦察区域'
   }
 ]
 
@@ -951,6 +989,28 @@ export const MOCK_EVENTS: SituationEvent[] = [
     severity: 'warning',
     description: '我方 052D型焦作舰组织 6 艘国际商船编队安全过峡，346A相控阵雷达全向警戒。',
     evidenceIds: ['E-ME-001']
+  },
+  {
+    id: 'EVT-SCS-01',
+    eventName: '外军舰机南海抵近侦察',
+    category: 'air_reconnaissance',
+    timestamp: '2026-08-25 14:00:00',
+    location: [117.5, 12.2, 8500],
+    affectedTargetIds: ['Target-SCS-01', 'Target-SCS-04'],
+    severity: 'warning',
+    description: '外军P-8A反潜巡逻机在南海海域对我方岛礁驻守设施和巡逻编队实施抵近侦察，最近距离约45公里。',
+    evidenceIds: []
+  },
+  {
+    id: 'EVT-SCS-02',
+    eventName: '南海岛礁周边异常航行',
+    category: 'abnormal_navigation',
+    timestamp: '2026-08-25 14:30:00',
+    location: [118.2, 11.2, 0],
+    affectedTargetIds: ['Target-SCS-07'],
+    severity: 'normal',
+    description: '菲律宾武装渔船编队在南海岛礁周边海域异常航行，航迹呈环绕状态，疑似实施情报收集活动。',
+    evidenceIds: []
   }
 ]
 
