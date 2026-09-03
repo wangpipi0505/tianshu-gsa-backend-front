@@ -79,45 +79,46 @@
 
         <div class="divider"></div>
 
-        <el-button size="small" plain @click="jumpToStart" title="跳至历史观测起点 13:00">
-          <span>历史 13:00</span>
+        <el-button size="small" plain @click="jumpToStart" :title="`跳至历史观测起点 ${startLabel}`">
+          <span>历史 {{ startLabel }}</span>
         </el-button>
-        <el-button size="small" type="success" plain @click="jumpToNow" title="跳至当前事实基准点 15:30">
+        <el-button size="small" type="success" plain @click="jumpToNow" :title="`跳至当前事实基准点 ${presentLabel}`">
           <el-icon><Timer /></el-icon>
-          <span>基准 15:30</span>
+          <span>基准 {{ presentLabel }}</span>
         </el-button>
-        <el-button size="small" type="primary" plain @click="jumpToFutureEnd" title="跳至未来推演终点 16:30">
-          <span>未来 16:30</span>
+        <el-button size="small" type="primary" plain @click="jumpToFutureEnd" :title="`跳至未来推演终点 ${endLabel}`">
+          <span>未来 {{ endLabel }}</span>
         </el-button>
       </div>
     </div>
 
     <!-- 三段式 4D 时空演变全景滑轨 (历史 13:00~15:30 ➔ 基准 15:30 ➔ 未来 15:30~16:30) -->
     <div class="timeline-slider-box">
-      <div class="time-boundary start">13:00 [历史起点]</div>
+      <div class="time-boundary start">{{ startLabel }} [历史起点]</div>
       <div class="slider-wrapper">
         <!-- 三段式时空底色背景指示 -->
         <div class="temporal-zone-background">
-          <div class="zone history-zone" title="历史观测事实区间 (13:00 ~ 15:30)">
-            <span class="zone-text">历史观测区间 (Past Facts)</span>
+          <div class="zone history-zone" :style="{ width: historyWidth + '%' }" :title="`历史观测事实区间 (${startLabel} ~ ${presentLabel})`">
+            <span class="zone-text">历史观测区间</span>
           </div>
-          <div class="zone present-anchor" title="当前态势基准锚点 T0 (15:30:00)">
+          <div class="zone present-anchor" :style="{ left: historyWidth + '%' }" :title="`当前态势基准锚点 T0 (${presentLabel})`">
             <div class="anchor-pin"></div>
             <span class="anchor-tag">T0 当前基准</span>
           </div>
-          <div class="zone future-zone" title="未来推演与多分支预测区间 (15:30 ~ 16:30)">
-            <span class="zone-text">未来预测推演 (Future Prediction)</span>
+          <div class="zone future-zone" :style="{ width: futureWidth + '%' }" :title="`未来推演区间 (${presentLabel} ~ ${endLabel})`">
+            <span class="zone-text">未来预测推演</span>
           </div>
         </div>
 
         <!-- 历史/未来态势事件与高频活动密度条 -->
         <div class="density-bars">
-          <div class="bar history" style="left: 12%; height: 40%"></div>
-          <div class="bar history" style="left: 28%; height: 60%"></div>
-          <div class="bar history" style="left: 48%; height: 85%"></div>
-          <div class="bar present" style="left: 71.4%; height: 100%"></div>
-          <div class="bar future" style="left: 82%; height: 75%"></div>
-          <div class="bar future" style="left: 94%; height: 90%"></div>
+          <div
+            v-for="bucket in situationStore.densityBuckets"
+            :key="bucket.startMs"
+            :class="['bar', bucket.phase]"
+            :style="{ left: bucket.leftPercent + '%', height: bucket.heightPercent + '%' }"
+            :title="`${bucket.label}：${bucket.eventCount} 起事件，${bucket.sampleCount} 个活动采样`"
+          ></div>
         </div>
 
         <el-slider
@@ -129,7 +130,7 @@
           @input="onSliderInput"
         />
       </div>
-      <div class="time-boundary end">16:30 [未来终点]</div>
+      <div class="time-boundary end">{{ endLabel }} [未来终点]</div>
     </div>
   </div>
 </template>
@@ -138,6 +139,7 @@
 import { computed } from 'vue'
 import { useSituationStore } from '@/stores/situationStore'
 import { cesiumController } from '@/utils/cesiumHelper'
+import { formatHourLabel, formatLocalDateTime, parseTime, stepMsFromExtent } from '@/utils/timeRange'
 import { ElMessage } from 'element-plus'
 import {
   VideoPlay,
@@ -149,74 +151,64 @@ import {
 
 const situationStore = useSituationStore()
 
-// 总时长 210 分钟 (13:00 到 16:30)，15:30 位于 150/210 ≈ 71.43%
-const TOTAL_MINUTES = 210
-const START_HOUR = 13
-const START_MIN = 0
+const extent = computed(() => situationStore.timelineExtent)
+const startLabel = computed(() => formatHourLabel(extent.value.startMs))
+const endLabel = computed(() => formatHourLabel(extent.value.endMs))
+const presentLabel = computed(() => formatHourLabel(extent.value.presentMs))
+const historyWidth = computed(() =>
+  Math.max(8, Math.min(92, ((extent.value.presentMs - extent.value.startMs) / extent.value.totalMs) * 100))
+)
+const futureWidth = computed(() => 100 - historyWidth.value)
 
 const computedSliderPos = computed({
   get: () => {
-    const curMs = new Date(situationStore.currentPlaybackTime).getTime()
-    const startMs = new Date('2026-08-25 13:00:00').getTime()
-    const totalMs = TOTAL_MINUTES * 60 * 1000
-    const pos = Math.max(0, Math.min(100, ((curMs - startMs) / totalMs) * 100))
-    return Math.round(pos * 10) / 10
+    const curMs = parseTime(situationStore.currentPlaybackTime)
+    const pos = ((curMs - extent.value.startMs) / extent.value.totalMs) * 100
+    return Math.round(Math.max(0, Math.min(100, pos)) * 10) / 10
   },
   set: (val: number) => {
     onSliderInput(val)
   }
 })
 
+function timeFromPercent(val: number) {
+  const ms = extent.value.startMs + (val / 100) * extent.value.totalMs
+  return formatLocalDateTime(new Date(ms))
+}
+
 function formatTooltip(val: number) {
-  const totalPassedMins = (val / 100) * TOTAL_MINUTES
-  const hour = START_HOUR + Math.floor((START_MIN + totalPassedMins) / 60)
-  const min = Math.floor((START_MIN + totalPassedMins) % 60)
-  const pad = (n: number) => (n < 10 ? `0${n}` : n)
-  const timeStr = `${pad(hour)}:${pad(min)}:00`
-  if (hour < 15 || (hour === 15 && min < 30)) {
-    return `[历史观测] ${timeStr}`
-  } else if (hour === 15 && min === 30) {
-    return `[当前基准] ${timeStr}`
-  } else {
-    return `[未来推演] ${timeStr}`
-  }
+  const timeStr = timeFromPercent(val)
+  const ms = parseTime(timeStr)
+  if (Math.abs(ms - extent.value.presentMs) < 60000) return `[当前基准] ${timeStr}`
+  return ms < extent.value.presentMs ? `[历史观测] ${timeStr}` : `[未来推演] ${timeStr}`
 }
 
 function onSliderInput(val: number) {
-  const totalPassedMins = (val / 100) * TOTAL_MINUTES
-  const hour = START_HOUR + Math.floor((START_MIN + totalPassedMins) / 60)
-  const min = Math.floor((START_MIN + totalPassedMins) % 60)
-  const pad = (n: number) => (n < 10 ? `0${n}` : n)
-  const timeStr = `2026-08-25 ${pad(hour)}:${pad(min)}:00`
-  situationStore.seekTime(timeStr)
+  situationStore.seekTime(timeFromPercent(val))
 }
 
 function stepBackward() {
-  const curMs = new Date(situationStore.currentPlaybackTime).getTime()
-  const nextMs = Math.max(new Date('2026-08-25 13:00:00').getTime(), curMs - 10 * 60 * 1000)
-  const d = new Date(nextMs)
-  const pad = (n: number) => (n < 10 ? `0${n}` : n)
-  situationStore.seekTime(`2026-08-25 ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`)
+  const step = stepMsFromExtent(extent.value.totalMs)
+  const nextMs = Math.max(extent.value.startMs, parseTime(situationStore.currentPlaybackTime) - step)
+  situationStore.seekTime(formatLocalDateTime(new Date(nextMs)))
 }
 
 function stepForward() {
-  const curMs = new Date(situationStore.currentPlaybackTime).getTime()
-  const nextMs = Math.min(new Date('2026-08-25 16:30:00').getTime(), curMs + 10 * 60 * 1000)
-  const d = new Date(nextMs)
-  const pad = (n: number) => (n < 10 ? `0${n}` : n)
-  situationStore.seekTime(`2026-08-25 ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`)
+  const step = stepMsFromExtent(extent.value.totalMs)
+  const nextMs = Math.min(extent.value.endMs, parseTime(situationStore.currentPlaybackTime) + step)
+  situationStore.seekTime(formatLocalDateTime(new Date(nextMs)))
 }
 
 function jumpToStart() {
-  situationStore.seekTime('2026-08-25 13:00:00')
+  situationStore.seekTime(extent.value.start)
 }
 
 function jumpToNow() {
-  situationStore.seekTime('2026-08-25 15:30:00')
+  situationStore.seekTime(situationStore.presentAnchorTime)
 }
 
 function jumpToFutureEnd() {
-  situationStore.seekTime('2026-08-25 16:30:00')
+  situationStore.seekTime(extent.value.end)
 }
 
 function onToggleTemporalSlices() {
@@ -383,6 +375,7 @@ function onToggleFutureBranches() {
 
       .history-zone {
         width: 71.43%;
+        flex: none;
         background: linear-gradient(90deg, rgba(0, 210, 255, 0.12) 0%, rgba(0, 210, 255, 0.22) 100%);
         border-right: 2px solid #52c41a;
         display: flex;
@@ -427,6 +420,7 @@ function onToggleFutureBranches() {
 
       .future-zone {
         width: 28.57%;
+        flex: none;
         background: linear-gradient(90deg, rgba(179, 127, 235, 0.22) 0%, rgba(179, 127, 235, 0.12) 100%);
         display: flex;
         align-items: center;

@@ -25,5 +25,15 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          echarts: ['echarts', 'vue-echarts'],
+          element: ['element-plus', '@element-plus/icons-vue']
+        }
+      }
+    }
   }
 })

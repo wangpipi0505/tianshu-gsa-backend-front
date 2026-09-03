@@ -19,9 +19,14 @@
         <el-form label-width="140px" size="small">
           <el-form-item label="密级与脱敏策略:">
             <el-select v-model="securityLevel" style="width: 100%">
-              <el-option value="internal" label="内部研判级 (包含完整高维特性与证据链条)" />
-              <el-option value="public" label="对外通报级 (去除敏感雷达参数与原始载荷)" />
+              <el-option value="internal" :label="EXPORT_RULE_SETS.internal.label + '（全量）'" />
+              <el-option value="public" :label="EXPORT_RULE_SETS.public.label + '（剔除敏感项）'" />
             </el-select>
+            <div class="rule-detail">
+              {{ currentRule.description }}
+              <span v-if="currentRule.stripped.length">将剔除：{{ currentRule.stripped.join('、') }}</span>
+              <span v-else>将剔除：无</span>
+            </div>
           </el-form-item>
           <el-form-item label="包含工作内容:">
             <el-checkbox v-model="includeWorkContents">包含推演假设航线与战术标绘</el-checkbox>
@@ -42,7 +47,9 @@
             包含态势要素: {{ situationStore.targets.length }} 目标, {{ situationStore.events.length }} 态势事件,
             {{ situationStore.relations.length }} 协同关系, {{ situationStore.regions.length }} 空间区域
           </div>
-          <div v-if="securityLevel === 'public'" class="text-amber">对外通报级：已剔除雷达/光电高维特性、冲突记录与证据链载荷</div>
+          <div v-if="securityLevel === 'public'" class="text-amber">
+            {{ DATA_SERVICE_PUBLISH_PREFIX }}{{ currentRule.description }}；将剔除：{{ currentRule.stripped.join('、') }}
+          </div>
           <div>生成时间: {{ new Date().toLocaleString() }}</div>
         </div>
       </div>
@@ -59,12 +66,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
 import { useSituationStore } from '@/stores/situationStore'
 import { useAgentStore } from '@/stores/agentStore'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
+import { DATA_SERVICE_PUBLISH_PREFIX } from '@/utils/deliveryCopy'
+import { EXPORT_RULE_SETS, sanitizeExportPayload, type ExportSecurityLevel } from '@/utils/exportRules'
 
 const visible = ref(false)
 const sceneStore = useSceneStore()
@@ -72,23 +81,10 @@ const situationStore = useSituationStore()
 const agentStore = useAgentStore()
 
 const exportType = ref('scene_package')
-const securityLevel = ref('internal')
+const securityLevel = ref<ExportSecurityLevel>('internal')
 const includeWorkContents = ref(true)
 const includeAgentConversations = ref(true)
-
-/** 按密级策略脱敏目标：对外通报级剔除敏感高维特性、冲突与证据引用 */
-function sanitizeTargets() {
-  if (securityLevel.value === 'internal') {
-    return situationStore.targets
-  }
-  return situationStore.targets.map((t) => ({
-    ...t,
-    radarFeatures: undefined,
-    opticalFeatures: undefined,
-    conflicts: [],
-    evidenceIds: []
-  }))
-}
+const currentRule = computed(() => EXPORT_RULE_SETS[securityLevel.value])
 
 function downloadBlob(content: string, mime: string, filename: string) {
   const blob = new Blob([content], { type: mime })
@@ -140,23 +136,29 @@ function doExport() {
   }
 
   // 场景定义数据包：按密级脱敏后导出 JSON
-  const exportPayload = {
-    exportVersion: '1.0.0',
-    exportTime: new Date().toISOString(),
-    securityLevel: securityLevel.value,
-    scene: sceneStore.activeScene,
-    situationAssets: {
-      targets: sanitizeTargets(),
-      events: situationStore.events,
-      relations: situationStore.relations,
-      regions: situationStore.regions,
-      evidences: securityLevel.value === 'internal' ? situationStore.evidences : []
+  const exportPayload = sanitizeExportPayload(
+    {
+      exportVersion: '1.0.0',
+      exportTime: new Date().toISOString(),
+      securityLevel: securityLevel.value,
+      publishPrefix: DATA_SERVICE_PUBLISH_PREFIX,
+      scene: sceneStore.activeScene,
+      situationAssets: {
+        targets: situationStore.targets,
+        events: situationStore.events,
+        relations: situationStore.relations,
+        regions: situationStore.regions,
+        evidences: situationStore.evidences
+      },
+      agentConversations: includeAgentConversations.value
+        ? agentStore.messages.map((m) => ({ sender: m.sender, content: m.content, timestamp: m.timestamp }))
+        : [],
+      workContents: includeWorkContents.value ? sceneStore.workContents : []
     },
-    agentConclusions: includeAgentConversations.value
-      ? agentStore.messages.map((m) => ({ sender: m.sender, content: m.content, timestamp: m.timestamp }))
-      : [],
-    workContents: includeWorkContents.value ? sceneStore.workContents : []
-  }
+    securityLevel.value,
+    includeWorkContents.value,
+    includeAgentConversations.value
+  )
 
   downloadBlob(JSON.stringify(exportPayload, null, 2), 'application/json', `Situation_Scene_Export_${stamp}.json`)
   visible.value = false
@@ -203,6 +205,13 @@ defineExpose({
     font-family: var(--font-family-mono);
 
     .text-amber { color: #faad14; }
+  }
+
+  .rule-detail {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #8aa4c8;
+    line-height: 1.5;
   }
 }
 </style>

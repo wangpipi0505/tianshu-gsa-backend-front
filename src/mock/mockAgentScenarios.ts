@@ -63,6 +63,12 @@ export const CATEGORIZED_PROMPT_TEMPLATES = [
     items: [
       '清空地图上的所有态势。'
     ]
+  },
+  {
+    category: '🧩 态势场景构建',
+    items: [
+      '在海峡东侧构建一个我方空中巡逻阵位目标'
+    ]
   }
 ]
 
@@ -811,6 +817,54 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
         confidence: 0.3,
         isConfirmed: false
       }
+    }
+  ],
+
+  scenario_construct_patrol: [
+    {
+      id: 'MSG-USER-CONSTRUCT',
+      sender: 'user',
+      content: '在海峡东侧构建一个我方空中巡逻阵位目标',
+      timestamp: '2026-08-25 15:40:00'
+    },
+    {
+      id: 'MSG-AGENT-CONSTRUCT',
+      sender: 'agent',
+      content: '已理解构建意图：在海峡东侧放置一个**我方空中巡逻阵位**，作为假设性工作内容上图，不进入融合事实层。',
+      timestamp: '2026-08-25 15:40:02',
+      intentUnderstanding: {
+        rawPrompt: '在海峡东侧构建一个我方空中巡逻阵位目标',
+        intentCategory: 'build_scene',
+        intentTitle: '构建我方空中巡逻阵位',
+        targetScope: ['拟构建空中目标'],
+        spatialScope: '海峡东侧 (东经 122.40°，北纬 24.80°)',
+        timeScope: '当前研判时点',
+        actionSequence: ['解析构建意图', '生成构建草稿', '确认后态势上图'],
+        confidence: 0.96,
+        isConfirmed: true
+      },
+      actionCards: [
+        {
+          id: 'ACT-CONSTRUCT-PATROL',
+          actionType: 'construct_target',
+          title: '🧩 构建目标：海峡东侧巡逻阵位',
+          description: '空中目标 / 东经 122.4000°，北纬 24.8000° / 高度 6000 米',
+          previewPayload: {
+            name: '海峡东侧巡逻阵位',
+            objectType: 'aircraft',
+            affiliation: 'friend',
+            longitude: 122.4,
+            latitude: 24.8,
+            altitude: 6000,
+            speedKnots: 420,
+            remark: '在海峡东侧构建一个我方空中巡逻阵位',
+            produceMode: 'agent'
+          },
+          executed: false,
+          reversible: true,
+          basisExplanation: '依据自然语言构建意图生成的假设性工作内容草稿'
+        }
+      ]
     }
   ]
 }

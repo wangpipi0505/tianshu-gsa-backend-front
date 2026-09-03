@@ -55,6 +55,14 @@
             <el-icon><ChatDotRound /></el-icon>
             <span>发送至智能研判</span>
           </el-button>
+          <el-button
+            v-if="target"
+            size="small"
+            :type="isWatched ? 'warning' : 'default'"
+            @click="toggleWatch"
+          >
+            {{ isWatched ? '已关注' : '加入关注' }}
+          </el-button>
         </div>
       </div>
 
@@ -205,7 +213,7 @@
         <el-tab-pane label="特性基线对照" name="historical">
           <div class="tab-scroll-box">
             <div class="evidence-intro">
-              以下为目标特性知识库中的历史基线记录，供与当前目标特性进行人工比对参考（知识库示例数据，非自动匹配结论）：
+              以下为目标特性知识库中的历史基线记录，供与当前目标特性进行人工比对参考：
             </div>
             <div v-for="item in HISTORICAL_SIMILAR_TARGETS" :key="item.targetCode" class="hist-card">
               <div class="hist-header">
@@ -278,6 +286,12 @@ const drawerSize = computed(() => {
 })
 
 const target = computed(() => situationStore.selectedTarget)
+const isWatched = computed(() => !!target.value && situationStore.watchedTargetIds.includes(target.value.id))
+
+function toggleWatch() {
+  if (target.value) situationStore.toggleWatchTarget(target.value.id)
+}
+
 const evidenceList = computed(() => situationStore.selectedTargetEvidences)
 const targetEvents = computed(() => situationStore.selectedTargetEvents)
 const targetRelations = computed(() => situationStore.selectedTargetRelations)

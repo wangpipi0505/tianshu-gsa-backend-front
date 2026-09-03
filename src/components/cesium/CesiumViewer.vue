@@ -12,6 +12,12 @@
       @open-drawer="onOpenDrawer(targetId)"
     />
 
+    <EventDetailCard
+      :event-id="situationStore.selectedEventId"
+      @close="situationStore.selectedEventId = null"
+      @focus-target="onFocusFromEvent"
+    />
+
     <!-- 浮动底图切换器 (响应智能助手展开/收起平滑动态靠边避让) -->
     <div
       class="basemap-switcher tactical-panel"
@@ -39,6 +45,7 @@ import { useSceneStore } from '@/stores/sceneStore'
 import { useAgentStore } from '@/stores/agentStore'
 import type { SituationTarget } from '@/types/situation'
 import TargetFloatingPopup from '@/components/cesium/TargetFloatingPopup.vue'
+import EventDetailCard from '@/components/cesium/EventDetailCard.vue'
 
 const emit = defineEmits(['select-target', 'open-drawer'])
 const situationStore = useSituationStore()
@@ -92,6 +99,11 @@ function extractTargetIdFromPosition(position: Cesium.Cartesian2, scene: Cesium.
   const rawId = pickRawEntityId(position, scene)
   if (!rawId) return null
 
+  const eventId = cesiumController.extractEventId(rawId)
+  if (eventId) return `EVENT:${eventId}`
+  const clusterId = cesiumController.extractClusterId(rawId)
+  if (clusterId) return `CLUSTER:${clusterId}`
+
   // 严格白名单：仅当命中目标本体实体 ID (Target-001, Target-ME-001 等) 时才判定为点击目标
   if (situationStore.targets.some((t) => t.id === rawId)) {
     return rawId
@@ -100,7 +112,12 @@ function extractTargetIdFromPosition(position: Cesium.Cartesian2, scene: Cesium.
   return null
 }
 
-function updateCesiumScene() {
+function updateCesiumScene(mode: 'full' | 'positions' = 'full') {
+  if (mode === 'positions') {
+    cesiumController.updateTargetPositions(situationStore.targets)
+    return
+  }
+  cesiumController.applyTargetClustering(situationStore.targets)
   cesiumController.renderTargets(
     situationStore.targets,
     situationStore.selectedTargetId || undefined
@@ -114,6 +131,11 @@ function updateCesiumScene() {
   )
   cesiumController.renderEnvironment(
     situationStore.environment
+  )
+  cesiumController.renderEvents(
+    situationStore.events,
+    situationStore.targets,
+    situationStore.selectedEventId
   )
   // 三态切片图层：三个时间切面独立显隐，时间轴当前相位切片点亮
   cesiumController.renderTemporalSlices(situationStore.targets, {
@@ -147,8 +169,20 @@ onMounted(() => {
   // 单击：优先命中三态切片点 (选中切片+时间轴联动+斜视飞行)，其次命中目标本体图标时切换悬浮标牌
   // (点击空白海面/雷达阴影区域完全穿透，零误弹)
   handler.setInputAction((movement: any) => {
+    if (situationStore.pickBlocked || cesiumController.interactionMode !== 'idle') return
     const rawId = pickRawEntityId(movement.position, viewer.scene)
     if (!rawId) return
+
+    const eventId = cesiumController.extractEventId(rawId)
+    if (eventId) {
+      situationStore.selectedEventId = eventId
+      return
+    }
+    const clusterId = cesiumController.extractClusterId(rawId)
+    if (clusterId) {
+      cesiumController.zoomIntoCluster(clusterId, situationStore.targets)
+      return
+    }
 
     const sliceInfo = parseSliceEntityId(rawId)
     if (sliceInfo) {
@@ -170,8 +204,9 @@ onMounted(() => {
 
   // 双击：仅在鼠标精准双击目标实体图标时，以严格正俯瞰垂直视角 (Pitch: -89.9°, Heading: 0) 平滑聚焦目标
   handler.setInputAction((movement: any) => {
+    if (situationStore.pickBlocked || cesiumController.interactionMode !== 'idle') return
     const targetId = extractTargetIdFromPosition(movement.position, viewer.scene)
-    if (targetId) {
+    if (targetId && !targetId.includes(':')) {
       const t = situationStore.targets.find((item) => item.id === targetId)
       if (t) {
         situationStore.openTargetPopup(targetId)
@@ -181,13 +216,32 @@ onMounted(() => {
   }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK)
 
   updateCesiumScene()
+  let cameraTimer: number | null = null
+  viewer.camera.changed.addEventListener(() => {
+    if (cameraTimer) window.clearTimeout(cameraTimer)
+    cameraTimer = window.setTimeout(() => updateCesiumScene('full'), 180)
+  })
 })
+
+function onFocusFromEvent(targetId: string) {
+  const target = situationStore.targets.find((t) => t.id === targetId)
+  if (!target) return
+  sceneStore.showTargetAndFeatures(targetId)
+  situationStore.openTargetPopup(targetId)
+  cesiumController.focusTarget(target, 650000)
+}
+
+watch(
+  () => situationStore.currentPlaybackTime,
+  () => updateCesiumScene('positions')
+)
 
 watch(
   () => [
     situationStore.targets,
     situationStore.selectedTargetId,
     situationStore.openedPopupTargetIds,
+    situationStore.selectedEventId,
     situationStore.relations,
     situationStore.regions,
     situationStore.environment,
@@ -198,12 +252,13 @@ watch(
     situationStore.sliceLayers,
     situationStore.activeSliceKey,
     situationStore.selectedFutureBranchId,
-    situationStore.currentPlaybackTime,
+    situationStore.highlightedTargetIds,
+    situationStore.dimNonHighlighted,
     sceneStore.contentLayers,
     sceneStore.thematicPackages
   ],
   () => {
-    updateCesiumScene()
+    updateCesiumScene('full')
   },
   { deep: true }
 )

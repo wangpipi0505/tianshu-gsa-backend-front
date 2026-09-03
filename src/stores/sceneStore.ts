@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type {
   SituationalScene,
   LayerTreeNode,
@@ -12,6 +12,7 @@ import type {
   CameraBookmark,
   ThematicPackage
 } from '@/types/scene'
+import type { SituationTarget } from '@/types/situation'
 import { fetchSceneDetail, fetchScenes, saveSceneLayers, saveThematicPackages, updateScene } from '@/api/scene'
 import { USE_MOCK, cloneMock } from '@/config/dataSource'
 import { useSituationStore } from '@/stores/situationStore'
@@ -65,6 +66,92 @@ export const useSceneStore = defineStore('scene', () => {
     activeScene.value.referenceMode =
       activeScene.value.referenceMode === 'follow_latest' ? 'fixed_version' : 'follow_latest'
     if (!USE_MOCK) void persistScene()
+  }
+
+  /** 数据产品当前最新版本（用于场景打开时的版本比对提示） */
+  const latestProductVersion = ref('PROD-SITUATION-GLOBAL-v2.2')
+  const dismissedVersionPrompt = ref(false)
+
+  const hasProductVersionUpdate = computed(
+    () =>
+      !dismissedVersionPrompt.value &&
+      !!latestProductVersion.value &&
+      latestProductVersion.value !== activeScene.value.productVersionId
+  )
+
+  function confirmProductVersionRefresh() {
+    const previous = activeScene.value.productVersionId
+    activeScene.value.productVersionId = latestProductVersion.value
+    activeScene.value.updatedAt = new Date().toISOString().replace('T', ' ').slice(0, 19)
+    workContents.value.push({
+      id: `WORK-VERSION-${Date.now()}`,
+      type: 'simulated_track',
+      label: `数据产品引用刷新：${previous} → ${latestProductVersion.value}`,
+      isHypothesis: false,
+      createdBy: '当前用户',
+      basis: `数据产品已更新至 ${latestProductVersion.value}（原引用 ${previous}）`,
+      payload: { previous, current: latestProductVersion.value },
+      createdAt: activeScene.value.updatedAt
+    })
+    dismissedVersionPrompt.value = true
+    if (!USE_MOCK) void persistScene()
+  }
+
+  function dismissProductVersionPrompt() {
+    dismissedVersionPrompt.value = true
+  }
+
+  function addConstructedWorkItem(work: WorkContent, target: SituationTarget) {
+    workContents.value.push(work)
+    const workTier = contentLayers.value.find((l) => l.id === 'LAYER-WORK')
+    if (workTier) {
+      workTier.visible = true
+      workTier.expanded = true
+      if (!workTier.children) workTier.children = []
+      const exists = workTier.children.some((c) => c.workItemId === target.id)
+      if (!exists) {
+        workTier.children.push({
+          id: `WORK-NODE-${target.id}`,
+          name: `【构建】${target.codeName}`,
+          workItemId: target.id,
+          nodeType: 'work_item',
+          visible: true,
+          color: '#b37feb'
+        })
+      }
+    }
+
+    const pkg = thematicPackages.value.find((p) => p.theater === 'taiwan') || thematicPackages.value[0]
+    if (pkg) {
+      if (!pkg.workItems) pkg.workItems = []
+      if (!pkg.workItems.some((w) => w.id === target.id)) {
+        pkg.workItems.push({
+          id: target.id,
+          name: `【构建】${target.codeName}`,
+          color: '#b37feb',
+          visible: true
+        })
+      }
+      pkg.workItemsVisible = true
+      pkg.workItemsExpanded = true
+    }
+    schedulePersistVisibility()
+  }
+
+  function removeConstructedWorkItem(targetId: string) {
+    workContents.value = workContents.value.filter(
+      (w) => w.relatedFactTargetId !== targetId && w.id !== `WORK-${targetId}`
+    )
+    const workTier = contentLayers.value.find((l) => l.id === 'LAYER-WORK')
+    if (workTier?.children) {
+      workTier.children = workTier.children.filter((c) => c.workItemId !== targetId)
+    }
+    thematicPackages.value.forEach((pkg) => {
+      if (pkg.workItems) {
+        pkg.workItems = pkg.workItems.filter((w) => w.id !== targetId)
+      }
+    })
+    schedulePersistVisibility()
   }
 
   // 视角书签
@@ -515,6 +602,12 @@ export const useSceneStore = defineStore('scene', () => {
     persistPackages,
     persistScene,
     persistVisibility: schedulePersistVisibility,
-    applyMock
+    applyMock,
+    latestProductVersion,
+    hasProductVersionUpdate,
+    confirmProductVersionRefresh,
+    dismissProductVersionPrompt,
+    addConstructedWorkItem,
+    removeConstructedWorkItem
   }
 })

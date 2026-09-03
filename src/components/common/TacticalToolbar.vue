@@ -54,6 +54,24 @@
       </el-button>
     </el-tooltip>
 
+    <el-tooltip content="态势构建：在地球上点击放置位置" placement="bottom">
+      <el-button
+        size="small"
+        :type="activeTool === 'construct' ? 'primary' : 'default'"
+        @click="startConstruct"
+      >
+        <el-icon><Plus /></el-icon>
+        <span>态势构建</span>
+      </el-button>
+    </el-tooltip>
+
+    <el-tooltip content="按空间、时间与属性组合检索" placement="bottom">
+      <el-button size="small" @click="emit('open-search-drawer')">
+        <el-icon><Search /></el-icon>
+        <span>时空检索</span>
+      </el-button>
+    </el-tooltip>
+
     <!-- 清除量测与标绘 -->
     <el-tooltip content="清除地图上的临时量测与战术标绘" placement="bottom">
       <el-button size="small" circle @click="clearMeasurements">
@@ -145,10 +163,18 @@ import {
   RefreshRight,
   Aim,
   Document,
-  Download
+  Download,
+  Plus,
+  Search
 } from '@element-plus/icons-vue'
 
-const emit = defineEmits(['open-export-modal', 'open-layer-drawer', 'open-target-drawer'])
+const emit = defineEmits([
+  'open-export-modal',
+  'open-layer-drawer',
+  'open-target-drawer',
+  'open-search-drawer',
+  'open-construct-form'
+])
 const sceneStore = useSceneStore()
 const situationStore = useSituationStore()
 
@@ -182,6 +208,31 @@ function clearAllMapSituations() {
       ElMessage.success('已清空三维数字地球上的全部态势要素、包络区与信息标牌！')
     })
     .catch(() => undefined)
+}
+
+function startConstruct() {
+  if (activeTool.value === 'construct') {
+    activeTool.value = null
+    situationStore.pickBlocked = false
+    cesiumController.clearMeasurements()
+    ElMessage.info('已退出态势构建')
+    return
+  }
+  activeTool.value = 'construct'
+  situationStore.pickBlocked = true
+  ElMessage.success('在地球上点击放置位置，右键取消')
+  cesiumController.startPickPlacement(
+    (lon, lat) => {
+      activeTool.value = null
+      situationStore.pickBlocked = false
+      emit('open-construct-form', { lon, lat })
+    },
+    () => {
+      activeTool.value = null
+      situationStore.pickBlocked = false
+      ElMessage.info('已取消态势构建')
+    }
+  )
 }
 
 function toggleTool(tool: string) {

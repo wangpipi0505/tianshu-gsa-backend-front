@@ -28,6 +28,12 @@ import {
   MOCK_PRIMARY_ASSESSMENT
 } from '@/mock/mockSituationAssets'
 import { MOCK_EVIDENCE_ITEMS } from '@/mock/mockIntelligence'
+import {
+  deriveTimelineExtent,
+  buildDensityBuckets,
+  parseTime,
+  type DensityBucket
+} from '@/utils/timeRange'
 
 export const useSituationStore = defineStore('situation', () => {
   // 核心态势资产列表 (唯一事实层，启动后从库加载)
@@ -72,13 +78,53 @@ export const useSituationStore = defineStore('situation', () => {
   const showRadarCones = ref<boolean>(true)
   const showWeatherEffect = ref<boolean>(true)
 
-  // 4D 时空态势演变全时段引擎 (13:00 历史观测 ➔ 15:30 当前基准 ➔ 16:30 未来推演)
+  // 4D 时空态势演变：起止由场景数据推导，T0 保持当前基准锚点
   const presentAnchorTime = '2026-08-25 15:30:00'
   const timelineRange = ref<[string, string]>(['2026-08-25 13:00:00', '2026-08-25 16:30:00'])
   const currentPlaybackTime = ref<string>('2026-08-25 15:30:00')
+  const watchedTargetIds = ref<string[]>([])
+  const highlightedTargetIds = ref<string[]>([])
+  const dimNonHighlighted = ref(false)
+  const pickBlocked = ref(false)
   const isPlaying = ref<boolean>(false)
   const playbackSpeed = ref<number>(1)
   let playbackTimer: any = null
+
+  function collectSceneTimes(): string[] {
+    const times: string[] = []
+    targets.value.forEach((t) => {
+      t.tracks?.forEach((p) => times.push(p.timestamp))
+      t.predictedTracks?.forEach((p) => times.push(p.timestamp))
+      t.temporalSlices?.forEach((s) => times.push(s.time))
+      if (t.firstSeenTime) times.push(t.firstSeenTime)
+      if (t.lastSeenTime) times.push(t.lastSeenTime)
+    })
+    events.value.forEach((e) => times.push(e.timestamp))
+    return times
+  }
+
+  function refreshTimelineFromData() {
+    const extent = deriveTimelineExtent(collectSceneTimes(), presentAnchorTime)
+    timelineRange.value = [extent.start, extent.end]
+    const cur = parseTime(currentPlaybackTime.value)
+    if (cur < extent.startMs || cur > extent.endMs) {
+      currentPlaybackTime.value = presentAnchorTime
+    }
+  }
+
+  const timelineExtent = computed(() =>
+    deriveTimelineExtent(collectSceneTimes(), presentAnchorTime)
+  )
+
+  const densityBuckets = computed<DensityBucket[]>(() => {
+    const eventTimes = events.value.map((e) => e.timestamp)
+    const sampleTimes: string[] = []
+    targets.value.forEach((t) => {
+      t.tracks?.forEach((p) => sampleTimes.push(p.timestamp))
+      t.predictedTracks?.forEach((p) => sampleTimes.push(p.timestamp))
+    })
+    return buildDensityBuckets(timelineExtent.value, eventTimes, sampleTimes)
+  })
 
   // 历史与未来态势联动交互模式
   const temporalMode = ref<TemporalMode>('playback') // 'playback' | 'slices' | 'branches' | 'realtime'
@@ -180,6 +226,37 @@ export const useSituationStore = defineStore('situation', () => {
     } else {
       targets.value.push({ ...target })
     }
+    refreshTimelineFromData()
+  }
+
+  function removeTarget(id: string) {
+    const idx = targets.value.findIndex((t) => t.id === id)
+    if (idx >= 0) targets.value.splice(idx, 1)
+    const watchIdx = watchedTargetIds.value.indexOf(id)
+    if (watchIdx >= 0) watchedTargetIds.value.splice(watchIdx, 1)
+    const hi = highlightedTargetIds.value.indexOf(id)
+    if (hi >= 0) highlightedTargetIds.value.splice(hi, 1)
+    refreshTimelineFromData()
+  }
+
+  function toggleWatchTarget(id: string) {
+    const idx = watchedTargetIds.value.indexOf(id)
+    if (idx >= 0) watchedTargetIds.value.splice(idx, 1)
+    else watchedTargetIds.value.push(id)
+  }
+
+  function clearWatchList() {
+    watchedTargetIds.value = []
+  }
+
+  function setSearchHighlight(ids: string[]) {
+    highlightedTargetIds.value = [...ids]
+    dimNonHighlighted.value = ids.length > 0
+  }
+
+  function clearSearchHighlight() {
+    highlightedTargetIds.value = []
+    dimNonHighlighted.value = false
   }
 
   // 4D 时空插值核心算法：根据时间戳动态计算目标当前空间经纬度与高程（支持历史观测与未来推演全时段平滑贯通）
@@ -302,6 +379,7 @@ export const useSituationStore = defineStore('situation', () => {
     activeSliceKey.value = null
     activeSliceTargetId.value = ''
     ensureActiveSliceTarget()
+    refreshTimelineFromData()
   }
 
   async function loadSnapshot(productVersion?: string) {
@@ -321,6 +399,7 @@ export const useSituationStore = defineStore('situation', () => {
     assetVersionId.value = snapshot.assetVersionId || ''
     activeSliceKey.value = null
     ensureActiveSliceTarget()
+    refreshTimelineFromData()
   }
 
   // 联动交互 1：执行多源融合消除冲突并更新态势轨迹
@@ -517,7 +596,13 @@ export const useSituationStore = defineStore('situation', () => {
     showWeatherEffect,
     presentAnchorTime,
     timelineRange,
+    timelineExtent,
+    densityBuckets,
     currentPlaybackTime,
+    watchedTargetIds,
+    highlightedTargetIds,
+    dimNonHighlighted,
+    pickBlocked,
     currentTemporalPhase,
     temporalMode,
     showFutureTracks,
@@ -538,6 +623,11 @@ export const useSituationStore = defineStore('situation', () => {
     openTargetPopup,
     closeTargetPopup,
     upsertTarget,
+    removeTarget,
+    toggleWatchTarget,
+    clearWatchList,
+    setSearchHighlight,
+    clearSearchHighlight,
     seekTime,
     startPlayback,
     pausePlayback,

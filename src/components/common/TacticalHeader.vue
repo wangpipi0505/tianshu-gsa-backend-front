@@ -50,6 +50,12 @@
         <div class="utc-time">世界时: {{ utcTime }}</div>
       </div>
 
+      <el-badge :value="situationStore.watchedTargetIds.length" :hidden="!situationStore.watchedTargetIds.length">
+        <el-button size="small" plain @click="emit('open-watch-list')">
+          <span>关注对象集</span>
+        </el-button>
+      </el-badge>
+
       <el-button size="small" type="primary" plain @click="emit('toggle-agent')">
         <el-icon><ChatDotRound /></el-icon>
         <span>研判助手</span>
@@ -61,6 +67,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
+import { useSituationStore } from '@/stores/situationStore'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import {
@@ -75,8 +82,9 @@ import {
 
 dayjs.extend(utc)
 
-const emit = defineEmits(['toggle-agent', 'open-scene-modal'])
+const emit = defineEmits(['toggle-agent', 'open-scene-modal', 'open-watch-list'])
 const sceneStore = useSceneStore()
+const situationStore = useSituationStore()
 
 const bjtTime = ref('')
 const utcTime = ref('')

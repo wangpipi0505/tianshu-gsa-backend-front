@@ -6,7 +6,7 @@
         <span class="act-title">{{ action.title }}</span>
       </div>
       <el-tag size="small" :type="action.executed ? 'success' : 'warning'">
-        {{ action.executed ? '已态势上图' : '待确认上图' }}
+        {{ action.executed ? (action.actionType === 'construct_target' ? '已上图' : '已态势上图') : '待确认上图' }}
       </el-tag>
     </div>
 
@@ -48,6 +48,7 @@ import { useAgentStore } from '@/stores/agentStore'
 import { useSituationStore } from '@/stores/situationStore'
 import { useSceneStore } from '@/stores/sceneStore'
 import { cesiumController } from '@/utils/cesiumHelper'
+import { applyConstructDraft, removeConstructedItem } from '@/utils/constructScene'
 import { ElMessage } from 'element-plus'
 import { Lightning, Check, RefreshLeft } from '@element-plus/icons-vue'
 
@@ -61,6 +62,26 @@ const sceneStore = useSceneStore()
 
 function execute() {
   agentStore.executeAction(props.action)
+
+  if (props.action.actionType === 'construct_target') {
+    const payload = props.action.previewPayload || {}
+    const result = applyConstructDraft({
+      name: payload.name || '构建目标',
+      objectType: payload.objectType || 'aircraft',
+      affiliation: payload.affiliation || 'friend',
+      longitude: payload.longitude ?? 122.4,
+      latitude: payload.latitude ?? 24.8,
+      altitude: payload.altitude ?? 0,
+      speedKnots: payload.speedKnots ?? 0,
+      remark: payload.remark || props.action.basisExplanation,
+      produceMode: 'agent',
+      createdBy: '智能研判助手'
+    })
+    props.action.previewPayload = { ...payload, targetId: result.targetId, workContentId: result.workContentId }
+    cesiumController.flyToLocation(payload.longitude ?? 122.4, payload.latitude ?? 24.8, 260000, 0, -89.9)
+    ElMessage.success(`已构建目标：${payload.name || '构建目标'}`)
+    return
+  }
 
   // 1. 一键清空全量态势指令
   if (props.action.actionType === 'clear_all_situations') {
@@ -278,6 +299,13 @@ function execute() {
 
 function rollback() {
   agentStore.rollbackAction(props.action)
+
+  if (props.action.actionType === 'construct_target') {
+    const targetId = props.action.previewPayload?.targetId
+    if (targetId) removeConstructedItem(targetId)
+    ElMessage.success(`已移除构建目标：${props.action.previewPayload?.name || ''}`)
+    return
+  }
 
   if (props.action.actionType === 'clear_all_situations') {
     sceneStore.showAllSituationLayers()

@@ -134,6 +134,14 @@
         <el-icon><DataAnalysis /></el-icon>
         <span>查看全维研判抽屉</span>
       </el-button>
+      <el-button
+        v-if="target"
+        size="small"
+        :type="isWatched ? 'warning' : 'default'"
+        @click.stop="toggleWatch"
+      >
+        {{ isWatched ? '已关注' : '加入关注' }}
+      </el-button>
     </div>
   </div>
 </template>
@@ -145,6 +153,7 @@ import type { SituationTarget } from '@/types/situation'
 import { cesiumController } from '@/utils/cesiumHelper'
 import { getTargetTypeMeta } from '@/utils/formatters'
 import { useAgentStore } from '@/stores/agentStore'
+import { useSituationStore } from '@/stores/situationStore'
 import { Close, DataAnalysis } from '@element-plus/icons-vue'
 
 // Cesium 运行时存在 EllipsoidalOccluder，但官方类型声明缺失，这里做最小类型化
@@ -162,6 +171,13 @@ const props = defineProps<{
 const emit = defineEmits(['close', 'open-drawer'])
 
 const agentStore = useAgentStore()
+const situationStore = useSituationStore()
+const isWatched = computed(() => !!props.target && situationStore.watchedTargetIds.includes(props.target.id))
+
+function toggleWatch() {
+  if (props.target) situationStore.toggleWatchTarget(props.target.id)
+}
+
 const activeTab = ref<'basic' | 'status'>('basic')
 const screenPos = ref<{ x: number; y: number }>({ x: 500, y: 350 })
 const isVisibleOnScreen = ref<boolean>(true)

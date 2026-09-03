@@ -27,6 +27,8 @@
           @open-layer-drawer="layerDrawerRef?.open()"
           @open-target-drawer="inspectorRef?.open(situationStore.selectedTargetId || undefined)"
           @open-export-modal="exportModalRef?.open()"
+          @open-search-drawer="searchDrawerRef?.open()"
+          @open-construct-form="onOpenConstruct"
         />
       </div>
 
@@ -65,6 +67,10 @@
 
     <!-- 多源候选关联确认弹窗 -->
     <CandidateReviewModal ref="candidateReviewModalRef" />
+
+    <ConstructFormModal ref="constructFormRef" />
+    <SpatialSearchDrawer ref="searchDrawerRef" />
+    <VersionUpdateBanner />
   </div>
 </template>
 
@@ -81,6 +87,9 @@ import SimulationModal from '@/components/simulation/SimulationModal.vue'
 import ExportPackageModal from '@/components/scene/ExportPackageModal.vue'
 import SceneManagerDrawer from '@/components/scene/SceneManagerDrawer.vue'
 import CandidateReviewModal from '@/components/fusion/CandidateReviewModal.vue'
+import ConstructFormModal from '@/components/scene/ConstructFormModal.vue'
+import SpatialSearchDrawer from '@/components/search/SpatialSearchDrawer.vue'
+import VersionUpdateBanner from '@/components/scene/VersionUpdateBanner.vue'
 import { useSituationStore } from '@/stores/situationStore'
 import { useAgentStore } from '@/stores/agentStore'
 import { useFusionStore } from '@/stores/fusionStore'
@@ -97,6 +106,8 @@ const exportModalRef = ref<any>(null)
 const sceneDrawerRef = ref<any>(null)
 const candidateReviewModalRef = ref<any>(null)
 const agentPanelRef = ref<any>(null)
+const constructFormRef = ref<any>(null)
+const searchDrawerRef = ref<any>(null)
 
 // 点击三维目标点时：仅更新选中态与吸附标牌，严禁自动弹起全维研判大抽屉！
 function onTargetSelected(targetId: string) {
@@ -111,6 +122,10 @@ function onOpenDrawer(targetId?: string) {
 function onAskAgent(prompt: string) {
   agentStore.openAgent()
   agentStore.sendMessage(prompt)
+}
+
+function onOpenConstruct(payload: { lon: number; lat: number }) {
+  constructFormRef.value?.open(payload.lon, payload.lat)
 }
 
 defineExpose({

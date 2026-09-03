@@ -1,8 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import MainWorkbenchView from '@/views/MainWorkbenchView.vue'
-import DataFusionView from '@/views/DataFusionView.vue'
-import AnalyticsStudioView from '@/views/AnalyticsStudioView.vue'
-import OntologyExplorerView from '@/views/OntologyExplorerView.vue'
 
 const routes = [
   {
@@ -12,22 +8,22 @@ const routes = [
   {
     path: '/workbench',
     name: 'Workbench',
-    component: MainWorkbenchView
+    component: () => import('@/views/MainWorkbenchView.vue')
   },
   {
     path: '/fusion',
     name: 'Fusion',
-    component: DataFusionView
+    component: () => import('@/views/DataFusionView.vue')
   },
   {
     path: '/analytics',
     name: 'Analytics',
-    component: AnalyticsStudioView
+    component: () => import('@/views/AnalyticsStudioView.vue')
   },
   {
     path: '/ontology',
     name: 'Ontology',
-    component: OntologyExplorerView
+    component: () => import('@/views/OntologyExplorerView.vue')
   }
 ]
 

@@ -175,6 +175,7 @@
 import { ref, watch, nextTick } from 'vue'
 import { marked } from 'marked'
 import { ElMessage } from 'element-plus'
+import { sanitizeHtml } from '@/utils/sanitizeHtml'
 import { useAgentStore } from '@/stores/agentStore'
 import { FEATURED_PROMPTS, CATEGORIZED_PROMPT_TEMPLATES } from '@/mock/mockAgentScenarios'
 import IntentPreviewCard from '@/components/agent/IntentPreviewCard.vue'
@@ -199,7 +200,7 @@ marked.setOptions({
 function renderMarkdown(content: string): string {
   if (!content) return ''
   try {
-    return marked.parse(content) as string
+    return sanitizeHtml(marked.parse(content) as string)
   } catch (e) {
     return content
   }

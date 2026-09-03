@@ -4,12 +4,15 @@
     <TacticalHeader
       @toggle-agent="onToggleAgent"
       @open-scene-modal="onOpenSceneModal"
+      @open-watch-list="watchListRef?.open()"
     />
 
     <!-- 主视窗路由容器 -->
     <main class="main-content">
       <router-view ref="viewRef" />
     </main>
+
+    <WatchListPanel ref="watchListRef" />
   </div>
 </template>
 
@@ -17,11 +20,13 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import TacticalHeader from '@/components/common/TacticalHeader.vue'
+import WatchListPanel from '@/components/common/WatchListPanel.vue'
 import { useAgentStore } from '@/stores/agentStore'
 
 const router = useRouter()
 const agentStore = useAgentStore()
 const viewRef = ref<any>(null)
+const watchListRef = ref<any>(null)
 
 function onToggleAgent() {
   agentStore.isOpen = !agentStore.isOpen

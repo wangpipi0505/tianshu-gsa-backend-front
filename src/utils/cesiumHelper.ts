@@ -4,8 +4,9 @@
  */
 
 import * as Cesium from 'cesium'
-import type { SituationTarget, SpatialRelation, SituationRegion, BattlefieldEnvironment, TemporalPhase } from '@/types/situation'
+import type { SituationTarget, SpatialRelation, SituationRegion, BattlefieldEnvironment, TemporalPhase, SituationEvent } from '@/types/situation'
 import { useSceneStore } from '@/stores/sceneStore'
+import { useSituationStore } from '@/stores/situationStore'
 import { generateAttackArrowPoints } from '@/utils/militaryPlotting'
 
 export type BasemapType = 'satellite' | 'dark' | 'street'
@@ -23,9 +24,16 @@ export class CesiumController {
   private futureBranchEntities: Map<string, Cesium.Entity> = new Map()
   private temporalSliceEntities: Map<string, Cesium.Entity> = new Map()
   private measureEntities: Cesium.Entity[] = []
+  private eventEntities: Map<string, Cesium.Entity> = new Map()
+  private eventLinkEntities: Map<string, Cesium.Entity> = new Map()
+  private clusterEntities: Map<string, Cesium.Entity> = new Map()
+  private highlightEntities: Map<string, Cesium.Entity> = new Map()
 
   private activeHandler: Cesium.ScreenSpaceEventHandler | null = null
   private currentBasemap: BasemapType = 'satellite'
+  public interactionMode: 'idle' | 'construct' | 'search-rect' | 'measure' = 'idle'
+  private clusteredTargetIds: Set<string> = new Set()
+  private diamondImageCache: Record<string, string> = {}
 
   /** 初始化 Cesium 视窗 */
   public init(containerId: string): Cesium.Viewer {
@@ -330,6 +338,7 @@ export class CesiumController {
       this.activeHandler.destroy()
       this.activeHandler = null
     }
+    if (this.interactionMode !== 'idle') this.interactionMode = 'idle'
   }
 
   // ===================== 态势要素与细粒度实体分类树联动渲染 =====================
@@ -351,13 +360,18 @@ export class CesiumController {
       let isRadarVisible = false
 
       if (target.isHypothesis) {
-        isPointVisible = sceneStore.isWorkItemVisible('SIM-HYPO-001')
+        isPointVisible = sceneStore.isWorkItemVisible(target.id)
         isTrackVisible = isPointVisible
       } else {
         isPointVisible = sceneStore.isTargetVisible(target.id) && sceneStore.isFeatureVisible(target.id, 'position')
         isTrackVisible = sceneStore.isTargetVisible(target.id) && sceneStore.isFeatureVisible(target.id, 'track')
         isRadarVisible = sceneStore.isTargetVisible(target.id) && sceneStore.isFeatureVisible(target.id, 'radar')
       }
+
+      const situationStore = useSituationStore()
+      const isHighlighted = situationStore.highlightedTargetIds.includes(target.id)
+      const shouldDim = situationStore.dimNonHighlighted && !isHighlighted && !target.isHypothesis
+      const isClustered = this.clusteredTargetIds.has(target.id)
 
       const color = target.isHypothesis
         ? Cesium.Color.fromCssColorString('#b37feb')
@@ -369,18 +383,20 @@ export class CesiumController {
 
       const pos = Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
       const altText = target.altitude >= 1000 ? `${(target.altitude / 1000).toFixed(1)}公里` : `${target.altitude}米`
+      const pointVisible = isPointVisible && !isClustered
+      const pixelSize = isHighlighted ? 20 : isSelected ? 18 : 12
 
       if (!entity) {
         entity = this.viewer!.entities.add({
           id: target.id,
           name: target.codeName,
-          show: isPointVisible,
+          show: pointVisible,
           position: pos,
           point: {
-            pixelSize: isSelected ? 18 : 12,
-            color: color,
+            pixelSize,
+            color: shouldDim ? color.withAlpha(0.28) : color,
             outlineColor: Cesium.Color.WHITE,
-            outlineWidth: isSelected ? 3.5 : 1.5,
+            outlineWidth: isHighlighted ? 4 : isSelected ? 3.5 : 1.5,
             disableDepthTestDistance: Number.POSITIVE_INFINITY
           },
           label: {
@@ -398,12 +414,12 @@ export class CesiumController {
         })
         this.entityMap.set(target.id, entity)
       } else {
-        entity.show = isPointVisible
+        entity.show = pointVisible
         entity.position = new Cesium.ConstantPositionProperty(pos)
         if (entity.point) {
-          entity.point.pixelSize = new Cesium.ConstantProperty(isSelected ? 18 : 12)
-          entity.point.color = new Cesium.ConstantProperty(color)
-          entity.point.outlineWidth = new Cesium.ConstantProperty(isSelected ? 3.5 : 1.5)
+          entity.point.pixelSize = new Cesium.ConstantProperty(pixelSize)
+          entity.point.color = new Cesium.ConstantProperty(shouldDim ? color.withAlpha(0.28) : color)
+          entity.point.outlineWidth = new Cesium.ConstantProperty(isHighlighted ? 4 : isSelected ? 3.5 : 1.5)
         }
         if (entity.label) {
           entity.label.text = new Cesium.ConstantProperty(
@@ -415,8 +431,25 @@ export class CesiumController {
         }
       }
 
-      this.renderTargetTrack(target, isTrackVisible)
-      this.renderSingleRadarCone(target, isRadarVisible)
+      this.renderTargetTrack(target, isTrackVisible && !shouldDim)
+      this.renderSingleRadarCone(target, isRadarVisible && !shouldDim)
+      this.syncHighlightRing(target, isHighlighted && pointVisible)
+    })
+
+    this.pruneStaleTargets(targets)
+  }
+
+  public updateTargetPositions(targets: SituationTarget[]) {
+    if (!this.viewer) return
+    targets.forEach((target) => {
+      const entity = this.entityMap.get(target.id)
+      if (!entity) return
+      const pos = Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
+      entity.position = new Cesium.ConstantPositionProperty(pos)
+      const cone = this.radarConeEntities.get(`RADAR_CONE_${target.id}`)
+      if (cone) cone.position = new Cesium.ConstantPositionProperty(pos)
+      const ring = this.highlightEntities.get(`HL_${target.id}`)
+      if (ring) ring.position = new Cesium.ConstantPositionProperty(pos)
     })
   }
 
@@ -1113,6 +1146,333 @@ export class CesiumController {
     }
   }
 
+  private pruneStaleTargets(targets: SituationTarget[]) {
+    if (!this.viewer) return
+    const alive = new Set(targets.map((t) => t.id))
+    this.entityMap.forEach((entity, id) => {
+      if (!alive.has(id)) {
+        this.viewer!.entities.remove(entity)
+        this.entityMap.delete(id)
+      }
+    })
+    this.trackEntities.forEach((entity, id) => {
+      const tid = id.replace('TRACK_', '')
+      if (!alive.has(tid)) {
+        this.viewer!.entities.remove(entity)
+        this.trackEntities.delete(id)
+      }
+    })
+    this.highlightEntities.forEach((entity, id) => {
+      const tid = id.replace('HL_', '')
+      if (!alive.has(tid)) {
+        this.viewer!.entities.remove(entity)
+        this.highlightEntities.delete(id)
+      }
+    })
+  }
+
+  private syncHighlightRing(target: SituationTarget, visible: boolean) {
+    if (!this.viewer) return
+    const hid = `HL_${target.id}`
+    let ring = this.highlightEntities.get(hid)
+    const pos = Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
+    if (!visible) {
+      if (ring) ring.show = false
+      return
+    }
+    if (!ring) {
+      ring = this.viewer.entities.add({
+        id: hid,
+        position: pos,
+        ellipse: {
+          semiMajorAxis: 18000,
+          semiMinorAxis: 18000,
+          material: Cesium.Color.WHITE.withAlpha(0.12),
+          outline: true,
+          outlineColor: Cesium.Color.WHITE.withAlpha(0.85),
+          height: target.altitude
+        }
+      })
+      this.highlightEntities.set(hid, ring)
+    } else {
+      ring.show = true
+      ring.position = new Cesium.ConstantPositionProperty(pos)
+    }
+  }
+
+  public startPickPlacement(
+    onPicked: (lon: number, lat: number) => void,
+    onCancel?: () => void
+  ) {
+    if (!this.viewer) return
+    this.clearActiveHandler()
+    this.interactionMode = 'construct'
+    this.activeHandler = new Cesium.ScreenSpaceEventHandler(this.viewer.scene.canvas)
+    this.activeHandler.setInputAction((click: any) => {
+      const cartesian =
+        this.viewer!.camera.pickEllipsoid(click.position, this.viewer!.scene.globe.ellipsoid)
+      if (!cartesian) return
+      const carto = Cesium.Cartographic.fromCartesian(cartesian)
+      const lon = Cesium.Math.toDegrees(carto.longitude)
+      const lat = Cesium.Math.toDegrees(carto.latitude)
+      this.clearActiveHandler()
+      this.interactionMode = 'idle'
+      onPicked(Number(lon.toFixed(4)), Number(lat.toFixed(4)))
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+    this.activeHandler.setInputAction(() => {
+      this.clearActiveHandler()
+      this.interactionMode = 'idle'
+      onCancel?.()
+    }, Cesium.ScreenSpaceEventType.RIGHT_CLICK)
+  }
+
+  public startDrawRect(
+    onCompleted: (rect: { west: number; south: number; east: number; north: number }) => void,
+    onCancel?: () => void
+  ) {
+    if (!this.viewer) return
+    this.clearActiveHandler()
+    this.interactionMode = 'search-rect'
+    const corners: Cesium.Cartesian3[] = []
+    const dynamicPositions = new Cesium.CallbackProperty(() => {
+      if (corners.length < 2) return corners
+      const c1 = Cesium.Cartographic.fromCartesian(corners[0])
+      const c2 = Cesium.Cartographic.fromCartesian(corners[1])
+      const west = Math.min(c1.longitude, c2.longitude)
+      const east = Math.max(c1.longitude, c2.longitude)
+      const south = Math.min(c1.latitude, c2.latitude)
+      const north = Math.max(c1.latitude, c2.latitude)
+      return Cesium.Cartesian3.fromRadiansArrayHeights([
+        west, south, 0, east, south, 0, east, north, 0, west, north, 0, west, south, 0
+      ])
+    }, false)
+    const rectEntity = this.viewer.entities.add({
+      polyline: {
+        positions: dynamicPositions,
+        width: 2,
+        material: Cesium.Color.fromCssColorString('#00ffff')
+      }
+    })
+    this.measureEntities.push(rectEntity)
+
+    this.activeHandler = new Cesium.ScreenSpaceEventHandler(this.viewer.scene.canvas)
+    this.activeHandler.setInputAction((click: any) => {
+      const cartesian =
+        this.viewer!.camera.pickEllipsoid(click.position, this.viewer!.scene.globe.ellipsoid)
+      if (!cartesian) return
+      if (corners.length === 0) {
+        corners.push(cartesian)
+        corners.push(cartesian)
+      } else {
+        corners[1] = cartesian
+        const c1 = Cesium.Cartographic.fromCartesian(corners[0])
+        const c2 = Cesium.Cartographic.fromCartesian(corners[1])
+        this.clearActiveHandler()
+        this.interactionMode = 'idle'
+        onCompleted({
+          west: Cesium.Math.toDegrees(Math.min(c1.longitude, c2.longitude)),
+          east: Cesium.Math.toDegrees(Math.max(c1.longitude, c2.longitude)),
+          south: Cesium.Math.toDegrees(Math.min(c1.latitude, c2.latitude)),
+          north: Cesium.Math.toDegrees(Math.max(c1.latitude, c2.latitude))
+        })
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+    this.activeHandler.setInputAction((move: any) => {
+      if (corners.length < 2) return
+      const cartesian =
+        this.viewer!.camera.pickEllipsoid(move.endPosition, this.viewer!.scene.globe.ellipsoid)
+      if (cartesian) corners[1] = cartesian
+    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE)
+    this.activeHandler.setInputAction(() => {
+      this.clearActiveHandler()
+      this.interactionMode = 'idle'
+      onCancel?.()
+    }, Cesium.ScreenSpaceEventType.RIGHT_CLICK)
+  }
+
+  private diamondImage(color: string): string {
+    if (this.diamondImageCache[color]) return this.diamondImageCache[color]
+    const canvas = document.createElement('canvas')
+    canvas.width = 28
+    canvas.height = 28
+    const ctx = canvas.getContext('2d')!
+    ctx.beginPath()
+    ctx.moveTo(14, 2)
+    ctx.lineTo(26, 14)
+    ctx.lineTo(14, 26)
+    ctx.lineTo(2, 14)
+    ctx.closePath()
+    ctx.fillStyle = color
+    ctx.fill()
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    const url = canvas.toDataURL()
+    this.diamondImageCache[color] = url
+    return url
+  }
+
+  public renderEvents(events: SituationEvent[], targets: SituationTarget[], selectedEventId?: string | null) {
+    if (!this.viewer) return
+    const alive = new Set(events.map((e) => e.id))
+    events.forEach((evt) => {
+      const eid = `EVENT_${evt.id}`
+      let entity = this.eventEntities.get(eid)
+      const color =
+        evt.severity === 'critical' ? '#ff4d4f' : evt.severity === 'warning' ? '#fa8c16' : '#13c2c2'
+      const pos = Cesium.Cartesian3.fromDegrees(evt.location[0], evt.location[1], evt.location[2] || 0)
+      if (!entity) {
+        entity = this.viewer!.entities.add({
+          id: eid,
+          name: evt.eventName,
+          position: pos,
+          billboard: {
+            image: this.diamondImage(color),
+            scale: selectedEventId === evt.id ? 1.25 : 1,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          },
+          label: {
+            text: evt.eventName,
+            font: '12px sans-serif',
+            fillColor: Cesium.Color.fromCssColorString(color),
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 3,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            pixelOffset: new Cesium.Cartesian2(0, 22),
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        })
+        this.eventEntities.set(eid, entity)
+      } else {
+        entity.position = new Cesium.ConstantPositionProperty(pos)
+        if (entity.billboard) {
+          entity.billboard.scale = new Cesium.ConstantProperty(selectedEventId === evt.id ? 1.25 : 1)
+        }
+      }
+
+      evt.affectedTargetIds.forEach((tid) => {
+        const target = targets.find((t) => t.id === tid)
+        if (!target) return
+        const lid = `EVENT_LINK_${evt.id}_${tid}`
+        let link = this.eventLinkEntities.get(lid)
+        const start = pos
+        const end = Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
+        if (!link) {
+          link = this.viewer!.entities.add({
+            id: lid,
+            polyline: {
+              positions: [start, end],
+              width: 1.4,
+              material: new Cesium.PolylineDashMaterialProperty({
+                color: Cesium.Color.fromCssColorString(color).withAlpha(0.55),
+                dashLength: 10
+              })
+            }
+          })
+          this.eventLinkEntities.set(lid, link)
+        } else if (link.polyline) {
+          link.polyline.positions = new Cesium.ConstantProperty([start, end])
+        }
+      })
+    })
+
+    this.eventEntities.forEach((entity, id) => {
+      const raw = id.replace('EVENT_', '')
+      if (!alive.has(raw)) {
+        this.viewer!.entities.remove(entity)
+        this.eventEntities.delete(id)
+      }
+    })
+  }
+
+  public extractEventId(rawId: string): string | null {
+    return rawId.startsWith('EVENT_') ? rawId.replace('EVENT_', '') : null
+  }
+
+  public extractClusterId(rawId: string): string | null {
+    return rawId.startsWith('CLUSTER_') ? rawId.replace('CLUSTER_', '') : null
+  }
+
+  public applyTargetClustering(targets: SituationTarget[]) {
+    if (!this.viewer) return
+    this.clusterEntities.forEach((e) => this.viewer!.entities.remove(e))
+    this.clusterEntities.clear()
+    this.clusteredTargetIds.clear()
+
+    const height = this.viewer.camera.positionCartographic.height
+    if (height < 280000) return
+
+    const scene = this.viewer.scene
+    const groups: Array<{ members: SituationTarget[]; x: number; y: number }> = []
+    targets.forEach((target) => {
+      if (target.isHypothesis) return
+      const cartesian = Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
+      const win =
+        (Cesium.SceneTransforms as any).worldToWindowCoordinates?.(scene, cartesian) ||
+        (Cesium.SceneTransforms as any).wgs84ToWindowCoordinates?.(scene, cartesian)
+      if (!win) return
+      const found = groups.find((g) => Math.hypot(g.x - win.x, g.y - win.y) < 46)
+      if (found) {
+        found.members.push(target)
+        found.x = (found.x * (found.members.length - 1) + win.x) / found.members.length
+        found.y = (found.y * (found.members.length - 1) + win.y) / found.members.length
+      } else {
+        groups.push({ members: [target], x: win.x, y: win.y })
+      }
+    })
+
+    groups.forEach((g, idx) => {
+      if (g.members.length < 2) return
+      g.members.forEach((m) => this.clusteredTargetIds.add(m.id))
+      const avgLon = g.members.reduce((s, m) => s + m.longitude, 0) / g.members.length
+      const avgLat = g.members.reduce((s, m) => s + m.latitude, 0) / g.members.length
+      const cid = `CLUSTER_${idx}`
+      const entity = this.viewer!.entities.add({
+        id: cid,
+        position: Cesium.Cartesian3.fromDegrees(avgLon, avgLat, 8000),
+        point: {
+          pixelSize: 22,
+          color: Cesium.Color.fromCssColorString('#00d2ff'),
+          outlineColor: Cesium.Color.WHITE,
+          outlineWidth: 2,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        },
+        label: {
+          text: `×${g.members.length}`,
+          font: 'bold 13px sans-serif',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          pixelOffset: new Cesium.Cartesian2(0, -18),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      })
+      this.clusterEntities.set(cid, entity)
+    })
+  }
+
+  public zoomIntoCluster(clusterId: string, targets: SituationTarget[]) {
+    const entity = this.clusterEntities.get(`CLUSTER_${clusterId}`) || this.clusterEntities.get(clusterId)
+    if (!entity || !this.viewer) {
+      const height = this.viewer?.camera.positionCartographic.height || 800000
+      this.viewer?.camera.zoomIn(height * 0.45)
+      return
+    }
+    const pos = entity.position?.getValue(Cesium.JulianDate.now())
+    if (!pos) return
+    const carto = Cesium.Cartographic.fromCartesian(pos)
+    const nextHeight = Math.max(120000, this.viewer.camera.positionCartographic.height * 0.45)
+    this.flyToLocation(
+      Cesium.Math.toDegrees(carto.longitude),
+      Cesium.Math.toDegrees(carto.latitude),
+      nextHeight,
+      0,
+      -89.9
+    )
+    void targets
+  }
+
   /**
    * 纯数据驱动：根据目标实体对象集合，自动聚合经纬度计算最佳相机视窗
    */
@@ -1155,6 +1515,10 @@ export class CesiumController {
     this.futureTrackEntities.clear()
     this.futureBranchEntities.clear()
     this.temporalSliceEntities.clear()
+    this.eventEntities.clear()
+    this.eventLinkEntities.clear()
+    this.clusterEntities.clear()
+    this.highlightEntities.clear()
     this.measureEntities = []
   }
 }

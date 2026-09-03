@@ -1,4 +1,5 @@
 import { ElMessage } from 'element-plus'
+import { SERVICE_INTERRUPT_MESSAGE } from '@/utils/deliveryCopy'
 import { fetchDemoToken } from '@/api/auth'
 import { setAccessToken } from '@/api/http'
 import { USE_MOCK, enableMockFallback } from '@/config/dataSource'
@@ -40,11 +41,9 @@ export async function bootstrapWorkspace() {
     ])
     await useAnalysisStore().loadFromApi()
     await useAgentStore().loadFromApi()
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    // 回退后同步翻转运行时开关，后续操作不再尝试访问后端
+  } catch {
     enableMockFallback()
     applyAllMocks()
-    ElMessage.warning(`后端不可用，已回退到本地原型数据：${message}`)
+    ElMessage.warning(SERVICE_INTERRUPT_MESSAGE)
   }
 }

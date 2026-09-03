@@ -86,6 +86,7 @@ export interface ActionCard {
     | 'start_temporal_evolution_playback'
     | 'compare_future_branches'
     | 'compare_temporal_slices'
+    | 'construct_target'
   title: string
   description: string
   previewPayload: Record<string, any>

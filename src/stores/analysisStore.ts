@@ -59,6 +59,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const trajectoryResult = ref<TrajectoryResult>({ ...emptyTrajectory })
   const associationResult = ref<AssociationResult>({ ...emptyAssociation })
   const thematicAssets = ref<ThematicAsset[]>([])
+  const objectRangeTargetIds = ref<string[]>([])
+  const objectRangeLabel = ref('')
 
   function applyMock() {
     thematicAssets.value = cloneMock(MOCK_THEMATIC_ASSETS)
@@ -86,10 +88,16 @@ export const useAnalysisStore = defineStore('analysis', () => {
     const situation = useSituationStore()
     const scope = currentSourceScope.value
     const scopeExcludesHypothesis = scope === 'fact_only' || scope === 'source_compare'
-    const targets = situation.targets.filter((t) => (scopeExcludesHypothesis ? !t.isHypothesis : true))
+    const isWorkContentTarget = (t: SituationTarget) =>
+      t.isHypothesis === true || t.id.startsWith('CONSTRUCT-') || t.id.startsWith('SIM-HYPO')
+    const rangeIds = objectRangeTargetIds.value
+    const pool = rangeIds.length
+      ? situation.targets.filter((t) => rangeIds.includes(t.id))
+      : situation.targets
+    const targets = pool.filter((t) => (scopeExcludesHypothesis ? !isWorkContentTarget(t) : true))
     if (scope === 'work_only') {
-      // 仅标绘推演口径：只统计推演假设实体
-      const workTargets = situation.targets.filter((t) => t.isHypothesis)
+      // 仅标绘推演口径：只统计推演假设与构建目标
+      const workTargets = pool.filter(isWorkContentTarget)
       buildStatistical(workTargets, situation)
       buildTrajectory(workTargets[0] || null)
     } else {
@@ -242,6 +250,12 @@ export const useAnalysisStore = defineStore('analysis', () => {
     await compute()
   }
 
+  function setObjectRange(ids: string[], label = '') {
+    objectRangeTargetIds.value = [...ids]
+    objectRangeLabel.value = label
+    if (USE_MOCK) computeFromSituation()
+  }
+
   async function publishCurrentThematic(title: string, conclusion: string) {
     const asset: ThematicAsset = {
       id: `THEMATIC-${Date.now()}`,
@@ -274,6 +288,9 @@ export const useAnalysisStore = defineStore('analysis', () => {
     loadFromApi,
     compute,
     setSourceScope,
+    setObjectRange,
+    objectRangeTargetIds,
+    objectRangeLabel,
     publishCurrentThematic
   }
 })

@@ -100,7 +100,7 @@ export const useFusionStore = defineStore('fusion', () => {
           regions: situation.regions.length
         },
         createdTime: ts,
-        changeLog: `本地原型发布：${decided.length ? `${decided.length} 项候选关联已完成人工研判` : '无新增人工研判'}，快照含 ${situation.targets.length} 个作战实体`,
+        changeLog: `数据服务发布：${decided.length ? `${decided.length} 项候选关联已完成人工研判` : '无新增人工研判'}，快照含 ${situation.targets.length} 个作战实体`,
         isLocked: false
       }
       const base = productReleases.value[0]

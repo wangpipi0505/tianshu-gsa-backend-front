@@ -59,8 +59,8 @@
             </div>
           </div>
 
-          <!-- 专题透明度调节 (透明度渲染管线规划中，暂为占位) -->
-          <div v-if="pkg.visible" class="tier-opacity-slider">
+          <!-- 专题透明度：未接线到三维渲染，交付态整体隐藏 -->
+          <div v-if="SHOW_LAYER_OPACITY_CONTROLS && pkg.visible" class="tier-opacity-slider">
             <span class="label">专题透明度</span>
             <el-slider
               v-model="pkg.opacity"
@@ -254,7 +254,7 @@
                 <div
                   v-for="w in pkg.workItems"
                   :key="w.id"
-                  class="node-row leaf-item-row"
+                  class="node-row leaf-item-row work-item-row"
                 >
                   <div class="node-left">
                     <el-checkbox
@@ -264,6 +264,16 @@
                     <span class="work-icon">📐</span>
                     <span class="node-title work-name" :style="{ color: w.color }">{{ w.name }}</span>
                   </div>
+                  <el-button
+                    v-if="w.id.startsWith('CONSTRUCT-')"
+                    size="small"
+                    text
+                    type="danger"
+                    class="delete-construct-btn"
+                    @click="removeConstruct(w.id, w.name)"
+                  >
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
                 </div>
               </div>
             </div>
@@ -278,7 +288,7 @@
           <span>按空中域、水面域、地面防空域与环境底图分类，支持微观细粒度点对点控制。</span>
         </div>
 
-        <div v-for="tier in sceneStore.contentLayers" :key="tier.id" class="tier-card tactical-panel">
+        <div v-for="tier in visibleTiers" :key="tier.id" class="tier-card tactical-panel">
           <!-- 顶级图层组标题行 -->
           <div class="node-row tier-row">
             <div class="node-left">
@@ -303,8 +313,8 @@
             </div>
           </div>
 
-          <!-- 顶级图层组透明度调节 (透明度渲染管线规划中，暂为占位) -->
-          <div v-if="tier.visible && tier.opacity !== undefined" class="tier-opacity-slider">
+          <!-- 图层透明度：未接线到三维渲染，交付态整体隐藏 -->
+          <div v-if="SHOW_LAYER_OPACITY_CONTROLS && tier.visible && tier.opacity !== undefined" class="tier-opacity-slider">
             <span class="label">图层透明度</span>
             <el-slider
               v-model="tier.opacity"
@@ -321,7 +331,7 @@
           <!-- 二级分类列表 -->
           <div v-if="tier.visible && tier.expanded && tier.children" class="tree-children-container">
             <div
-              v-for="cat in tier.children"
+              v-for="cat in visibleChildren(tier)"
               :key="cat.id"
               class="tree-branch-node"
             >
@@ -336,15 +346,22 @@
                   </span>
                   <el-checkbox
                     v-model="cat.visible"
-                    :disabled="isPlannedNode(cat)"
-                    :title="isPlannedNode(cat) ? '该图层要素的渲染管线尚未接入' : undefined"
                     @change="onNodeCheckChange(cat)"
                   />
                   <span class="node-title category-title" :style="{ color: cat.color || '#a2b7d4' }">
                     {{ cat.name }}
                   </span>
-                  <el-tag v-if="isPlannedNode(cat)" size="small" type="info" class="planned-tag">规划中</el-tag>
                 </div>
+                <el-button
+                  v-if="cat.nodeType === 'work_item' && cat.workItemId?.startsWith('CONSTRUCT-')"
+                  size="small"
+                  text
+                  type="danger"
+                  class="delete-construct-btn"
+                  @click="removeConstruct(cat.workItemId!, cat.name)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
               </div>
 
               <!-- 三级作战实体列表 -->
@@ -405,11 +422,19 @@
 import { ref, computed } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
 import { cesiumController } from '@/utils/cesiumHelper'
+import { SHOW_LAYER_OPACITY_CONTROLS, PLANNED_LAYER_NODE_IDS } from '@/utils/deliveryCopy'
+import { removeConstructedItem } from '@/utils/constructScene'
 import type { LayerTreeNode, ThematicPackage, ThematicTargetItem } from '@/types/scene'
-import { ArrowRight, InfoFilled, Aim } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { ArrowRight, InfoFilled, Aim, Delete } from '@element-plus/icons-vue'
 
 const visible = ref(false)
 const sceneStore = useSceneStore()
+
+function removeConstruct(id: string, name: string) {
+  removeConstructedItem(id)
+  ElMessage.success(`已移除构建目标：${name}`)
+}
 
 const drawerSize = computed(() => {
   if (typeof window !== 'undefined' && window.innerWidth < 1440) {
@@ -417,6 +442,22 @@ const drawerSize = computed(() => {
   }
   return '440px'
 })
+
+function isPlannedNode(node: LayerTreeNode): boolean {
+  return PLANNED_LAYER_NODE_IDS.includes(node.id)
+}
+
+function visibleChildren(node: LayerTreeNode): LayerTreeNode[] {
+  return (node.children || []).filter((child) => !isPlannedNode(child))
+}
+
+const visibleTiers = computed(() =>
+  sceneStore.contentLayers.filter((tier) => {
+    const kids = visibleChildren(tier)
+    if ((tier.children || []).length > 0 && kids.length === 0) return false
+    return true
+  })
+)
 
 function getFeatureIcon(key?: string) {
   if (key === 'position') return '📍'
@@ -459,11 +500,6 @@ function onThematicItemCheck(pkg: ThematicPackage) {
   pkg.visible =
     !!pkg.targetsVisible || !!pkg.regionsVisible || !!pkg.relationsVisible || !!pkg.workItemsVisible
   sceneStore.persistVisibility()
-}
-
-// 渲染管线尚未接入的占位图层节点（底图/海岸线/海况/潮汐），暂禁用勾选避免"假开关"
-function isPlannedNode(node: LayerTreeNode): boolean {
-  return ['BASE-NODE-MAP', 'BASE-NODE-BORDER', 'ENV-NODE-SEA', 'ENV-NODE-GEO'].includes(node.id)
 }
 
 function onNodeCheckChange(node: LayerTreeNode) {

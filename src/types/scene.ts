@@ -12,13 +12,16 @@ export interface CameraBookmark {
   rollDeg: number
 }
 
+export type WorkContentType = 'tactical_arrow' | 'defense_zone' | 'simulated_track' | 'constructed_target'
+
 export interface WorkContent {
   id: string
-  type: 'tactical_arrow' | 'defense_zone' | 'simulated_track'
+  type: WorkContentType
   label: string
   isHypothesis: boolean
   createdBy: string
   basis: string
+  produceMode?: 'manual' | 'agent'
   relatedFactTargetId?: string
   payload: any
   createdAt: string

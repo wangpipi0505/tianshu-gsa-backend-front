@@ -61,7 +61,9 @@ export const useAgentStore = defineStore('agent', () => {
       promptText.includes('阿曼湾') ||
       promptText.includes('焦作')
 
-    if (promptText.includes('清空') || promptText.includes('清屏') || promptText.includes('清除态势')) {
+    if (promptText.includes('构建') || promptText.includes('假设目标') || promptText.includes('态势场景')) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_construct_patrol
+    } else if (promptText.includes('清空') || promptText.includes('清屏') || promptText.includes('清除态势')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_clear_situations
     } else if (promptText.includes('分支') || promptText.includes('多分支') || promptText.includes('规避') || promptText.includes('压制')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_future_branches_viper

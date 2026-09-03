@@ -59,6 +59,10 @@ export interface SituationTarget {
   affiliation: AffiliationType
   status: 'active' | 'lost' | 'archived'
   isHypothesis?: boolean
+  constructSource?: 'manual' | 'agent'
+  firstSeenTime?: string
+  lastSeenTime?: string
+  sourceDatasets?: string[]
   imageUrl?: string // 目标高保真实体图像/外观图
 
   // 动态时空位置
