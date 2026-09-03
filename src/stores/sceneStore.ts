@@ -72,12 +72,18 @@ export const useSceneStore = defineStore('scene', () => {
   const latestProductVersion = ref('PROD-SITUATION-GLOBAL-v2.2')
   const dismissedVersionPrompt = ref(false)
 
-  const hasProductVersionUpdate = computed(
-    () =>
-      !dismissedVersionPrompt.value &&
-      !!latestProductVersion.value &&
-      latestProductVersion.value !== activeScene.value.productVersionId
-  )
+  const hasProductVersionUpdate = computed(() => {
+    if (dismissedVersionPrompt.value) return false
+    if (!latestProductVersion.value) return false
+    if (latestProductVersion.value === activeScene.value.productVersionId) return false
+    // 同一版本的提示选择"保持现状"后持久化不再弹出（演示态即交付态，避免重复打扰）
+    try {
+      if (localStorage.getItem('gsa.versionPromptDismissed') === latestProductVersion.value) return false
+    } catch {
+      /* localStorage 不可用时退回内存判断 */
+    }
+    return true
+  })
 
   function confirmProductVersionRefresh() {
     const previous = activeScene.value.productVersionId
@@ -99,6 +105,11 @@ export const useSceneStore = defineStore('scene', () => {
 
   function dismissProductVersionPrompt() {
     dismissedVersionPrompt.value = true
+    try {
+      localStorage.setItem('gsa.versionPromptDismissed', latestProductVersion.value)
+    } catch {
+      /* 忽略 */
+    }
   }
 
   function addConstructedWorkItem(work: WorkContent, target: SituationTarget) {

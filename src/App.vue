@@ -1,44 +1,25 @@
 <template>
   <div class="app-layout">
     <!-- 顶部战术导航与状态栏 -->
-    <TacticalHeader
-      @toggle-agent="onToggleAgent"
-      @open-scene-modal="onOpenSceneModal"
-      @open-watch-list="watchListRef?.open()"
-    />
+    <TacticalHeader @toggle-agent="onToggleAgent" />
 
     <!-- 主视窗路由容器 -->
     <main class="main-content">
       <router-view ref="viewRef" />
     </main>
-
-    <WatchListPanel ref="watchListRef" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import TacticalHeader from '@/components/common/TacticalHeader.vue'
-import WatchListPanel from '@/components/common/WatchListPanel.vue'
 import { useAgentStore } from '@/stores/agentStore'
 
-const router = useRouter()
 const agentStore = useAgentStore()
 const viewRef = ref<any>(null)
-const watchListRef = ref<any>(null)
 
 function onToggleAgent() {
   agentStore.isOpen = !agentStore.isOpen
-}
-
-function onOpenSceneModal() {
-  if (viewRef.value && viewRef.value.openSceneModal) {
-    viewRef.value.openSceneModal()
-  } else {
-    // 场景档案能力挂在三维工作台；其他路由点击时先切回工作台
-    router.push('/workbench')
-  }
 }
 </script>
 

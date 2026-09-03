@@ -125,6 +125,21 @@
       </el-button>
     </el-tooltip>
 
+    <div class="divider"></div>
+
+    <!-- 关注对象集 -->
+    <el-badge
+      :value="situationStore.watchedTargetIds.length"
+      :hidden="!situationStore.watchedTargetIds.length"
+      class="watch-badge"
+    >
+      <el-tooltip content="查看与管理关注对象集" placement="bottom">
+        <el-button size="small" plain @click="emit('open-watch-list')">
+          <span>关注对象集</span>
+        </el-button>
+      </el-tooltip>
+    </el-badge>
+
     <!-- 坐标定位弹窗 -->
     <el-dialog v-model="showCoordModal" title="坐标定位与视角跳转" width="420px" append-to-body>
       <el-form label-width="90px" size="small">
@@ -174,7 +189,8 @@ const emit = defineEmits([
   'open-layer-drawer',
   'open-target-drawer',
   'open-search-drawer',
-  'open-construct-form'
+  'open-construct-form',
+  'open-watch-list'
 ])
 
 const sceneStore = useSceneStore()

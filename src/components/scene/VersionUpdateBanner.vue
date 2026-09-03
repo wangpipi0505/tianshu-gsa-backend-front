@@ -19,8 +19,28 @@ const sceneStore = useSceneStore()
 function confirm() {
   const next = sceneStore.latestProductVersion
   sceneStore.confirmProductVersionRefresh()
+  persistDismissed(next)
   ElMessage.success(`已刷新场景引用至 ${next}`)
 }
+
+/** 演示/交付阶段：同一版本的刷新提示只出现一次，选择后持久化不再重复弹出 */
+function persistDismissed(version: string) {
+  try {
+    localStorage.setItem('gsa.versionPromptDismissed', version)
+  } catch {
+    /* 隐私模式等场景忽略 */
+  }
+}
+
+function isDismissed(version: string): boolean {
+  try {
+    return localStorage.getItem('gsa.versionPromptDismissed') === version
+  } catch {
+    return false
+  }
+}
+
+defineExpose({ isDismissed })
 </script>
 
 <style scoped lang="scss">

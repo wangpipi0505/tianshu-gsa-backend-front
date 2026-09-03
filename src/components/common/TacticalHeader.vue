@@ -9,10 +9,6 @@
           <div class="sub-title">智能情报态势显示工作台</div>
         </div>
       </div>
-      <div class="status-indicator">
-        <span class="status-dot"></span>
-        <span class="status-text">态势服务: 正常运行 (版本 2.1)</span>
-      </div>
     </div>
 
     <!-- 中间主业务导航 -->
@@ -35,36 +31,12 @@
       </router-link>
     </nav>
 
-    <!-- 右侧场景信息与时钟 -->
+    <!-- 右侧时钟与研判助手入口 -->
     <div class="header-right">
-      <div class="scene-badge" @click="emit('open-scene-modal')">
-        <el-icon><FolderOpened /></el-icon>
-        <span class="scene-name">{{ sceneStore.activeScene.name }}</span>
-        <span :class="['mode-tag', sceneStore.activeScene.referenceMode]">
-          {{ sceneStore.activeScene.referenceMode === 'follow_latest' ? '跟随最新版本' : '固定版本快照' }}
-        </span>
-      </div>
-
       <div class="clock-box">
         <div class="bjt-time">北京时间: {{ bjtTime }}</div>
         <div class="utc-time">世界时: {{ utcTime }}</div>
       </div>
-
-      <el-tag size="small">{{ clearanceLabel }}</el-tag>
-      <el-select
-        size="small"
-        :model-value="identityStore.userName"
-        style="width: 168px"
-        @change="(v: any) => identityStore.switchProfile(v)"
-      >
-        <el-option v-for="p in identityStore.profiles" :key="p.name" :label="`${p.name} / ${clearanceText(p.clearance)}`" :value="p.name" />
-      </el-select>
-      <el-tag size="small" :type="freshnessTag" style="cursor: pointer" @click="onRefresh">{{ freshnessText }}</el-tag>
-      <el-badge :value="situationStore.watchedTargetIds.length" :hidden="!situationStore.watchedTargetIds.length">
-        <el-button size="small" plain @click="emit('open-watch-list')">
-          <span>关注对象集</span>
-        </el-button>
-      </el-badge>
 
       <el-button size="small" type="primary" plain @click="emit('toggle-agent')">
         <el-icon><ChatDotRound /></el-icon>
@@ -76,11 +48,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { computed } from 'vue'
-import { useSceneStore } from '@/stores/sceneStore'
-import { useSituationStore } from '@/stores/situationStore'
 import { useIdentityStore } from '@/stores/identityStore'
-import { useFusionStore } from '@/stores/fusionStore'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import {
@@ -89,39 +57,13 @@ import {
   Connection,
   DataAnalysis,
   Share,
-  FolderOpened,
   ChatDotRound
 } from '@element-plus/icons-vue'
 
 dayjs.extend(utc)
 
-const emit = defineEmits(['toggle-agent', 'open-scene-modal', 'open-watch-list'])
-const sceneStore = useSceneStore()
-const situationStore = useSituationStore()
+const emit = defineEmits(['toggle-agent'])
 const identityStore = useIdentityStore()
-const fusionStore = useFusionStore()
-const CLEARANCE_LABEL: Record<string, string> = {
-  internal: '内部',
-  confidential: '秘密',
-  secret: '机密',
-  top_secret: '绝密'
-}
-function clearanceText(level: string) {
-  return CLEARANCE_LABEL[level] || level
-}
-const clearanceLabel = computed(() => `密级 ${clearanceText(identityStore.clearance)}`)
-const freshnessText = computed(() => {
-  const prod = fusionStore.productReleases[0]
-  const tp = prod?.statement?.lastUpdated || situationStore.currentPlaybackTime
-  const status = fusionStore.refreshStatus === 'updating' ? '更新中' : fusionStore.refreshStatus === 'failed' ? '失败' : '最新'
-  return `${status} · 数据时点 ${tp} · ${fusionStore.confirmMode}`
-})
-const freshnessTag = computed(() =>
-  fusionStore.refreshStatus === 'updating' ? 'warning' : fusionStore.refreshStatus === 'failed' ? 'danger' : 'success'
-)
-function onRefresh() {
-  void fusionStore.refreshLatest()
-}
 
 const bjtTime = ref('')
 const utcTime = ref('')
@@ -189,29 +131,6 @@ onUnmounted(() => {
       }
     }
   }
-
-  .status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(0, 210, 255, 0.08);
-    padding: 4px 10px;
-    border-radius: 3px;
-    border: 1px solid rgba(0, 210, 255, 0.25);
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #52c41a;
-      box-shadow: 0 0 8px #52c41a;
-    }
-
-    .status-text {
-      font-size: 12px;
-      color: #a2b7d4;
-    }
-  }
 }
 
 .header-nav {
@@ -252,50 +171,6 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
 
-  .scene-badge {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(14, 28, 48, 0.85);
-    border: 1px solid rgba(0, 210, 255, 0.35);
-    padding: 6px 12px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 13px;
-    transition: all 0.2s;
-
-    &:hover {
-      border-color: #00d2ff;
-      box-shadow: 0 0 10px rgba(0, 210, 255, 0.35);
-    }
-
-    .scene-name {
-      color: #f0f6fc;
-      max-width: 180px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .mode-tag {
-      font-size: 11px;
-      padding: 1px 6px;
-      border-radius: 2px;
-
-      &.follow_latest {
-        background: rgba(82, 196, 26, 0.2);
-        color: #52c41a;
-        border: 1px solid rgba(82, 196, 26, 0.5);
-      }
-
-      &.fixed_version {
-        background: rgba(250, 173, 20, 0.2);
-        color: #faad14;
-        border: 1px solid rgba(250, 173, 20, 0.5);
-      }
-    }
-  }
-
   .clock-box {
     text-align: right;
     font-family: var(--font-family-mono);
@@ -322,9 +197,6 @@ onUnmounted(() => {
     gap: 10px;
     .title-group .main-title {
       font-size: 15px;
-    }
-    .status-indicator {
-      display: none;
     }
   }
 

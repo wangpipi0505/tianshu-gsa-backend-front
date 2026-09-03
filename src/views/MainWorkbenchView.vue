@@ -13,6 +13,7 @@
         :class="{ 'agent-open': agentStore.isOpen }"
       >
         <div class="quick-action-group">
+          <SceneStatusStrip @open-scene-modal="sceneDrawerRef?.open()" />
           <el-button v-if="identityStore.canDo('simulation')" type="warning" size="small" @click="onOpenSimulation">
             <el-icon><VideoPlay /></el-icon>
             <span>发起红蓝推演</span>
@@ -29,7 +30,10 @@
           @open-export-modal="exportModalRef?.open()"
           @open-search-drawer="searchDrawerRef?.open()"
           @open-construct-form="onOpenConstruct"
+          @open-watch-list="watchListRef?.open()"
         />
+
+        <WatchListPanel ref="watchListRef" />
       </div>
 
       <!-- 4D 时空演变三态切片对比全景透视面板 (当开启三态对比时动态滑入) -->
@@ -88,6 +92,8 @@ import ExportPackageModal from '@/components/scene/ExportPackageModal.vue'
 import SceneManagerDrawer from '@/components/scene/SceneManagerDrawer.vue'
 import CandidateReviewModal from '@/components/fusion/CandidateReviewModal.vue'
 import ConstructFormModal from '@/components/scene/ConstructFormModal.vue'
+import SceneStatusStrip from '@/components/workbench/SceneStatusStrip.vue'
+import WatchListPanel from '@/components/common/WatchListPanel.vue'
 import SpatialSearchDrawer from '@/components/search/SpatialSearchDrawer.vue'
 import VersionUpdateBanner from '@/components/scene/VersionUpdateBanner.vue'
 import { useSituationStore } from '@/stores/situationStore'
@@ -110,6 +116,7 @@ const candidateReviewModalRef = ref<any>(null)
 const agentPanelRef = ref<any>(null)
 const constructFormRef = ref<any>(null)
 const searchDrawerRef = ref<any>(null)
+const watchListRef = ref<any>(null)
 
 // 点击三维目标点时：仅更新选中态与吸附标牌，严禁自动弹起全维研判大抽屉！
 function onTargetSelected(targetId: string) {
