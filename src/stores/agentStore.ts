@@ -6,11 +6,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { ChatMessage, ActionCard, IntentUnderstanding } from '@/types/agent'
-import { FEATURED_PROMPTS, MOCK_AGENT_SCENARIOS } from '@/mock/mockAgentScenarios'
-import { MOCK_EVIDENCE_ITEMS } from '@/mock/mockIntelligence'
+import { FEATURED_PROMPTS, MOCK_AGENT_SCENARIOS, PAGE_GREETINGS, PAGE_FALLBACK_HINTS } from '@/mock/mockAgentScenarios'
 import { USE_MOCK } from '@/config/dataSource'
 import { useIdentityStore } from '@/stores/identityStore'
 import { useSituationStore } from '@/stores/situationStore'
+import router from '@/router'
 import {
   createAgentSession,
   executeAgentAction,
@@ -30,8 +30,21 @@ export const useAgentStore = defineStore('agent', () => {
   const savedSessions = ref<Array<{ id: string; name: string; savedAt: string; messages: ChatMessage[] }>>([])
   const featuredPrompts = FEATURED_PROMPTS
 
+  /** 当前路由路径（页面感知上下文的依据） */
+  function currentPath(): string {
+    return router.currentRoute.value.path
+  }
+
   function applyMock() {
-    messages.value = JSON.parse(JSON.stringify(MOCK_AGENT_SCENARIOS.default))
+    const greeting = PAGE_GREETINGS[currentPath()] || PAGE_GREETINGS['/workbench']
+    messages.value = [
+      {
+        id: 'MSG-INIT-01',
+        sender: 'agent',
+        content: greeting,
+        timestamp: new Date().toLocaleString()
+      }
+    ]
     activeIntent.value = null
     executedActions.value = []
     sessionId.value = 'SESS-MOCK'
@@ -65,8 +78,14 @@ export const useAgentStore = defineStore('agent', () => {
       promptText.includes('阿曼湾') ||
       promptText.includes('焦作')
 
-    // 南海与菲律宾方向场景构建优先匹配（专属模板）
-    if (promptText.includes('南海') || promptText.includes('菲律宾')) {
+    // 页面业务口径优先：融合 / 统计分析 / 领域本体专属指令（在各页面均可输入识别）
+    if (/发布|资产版本|候选关联|数据源|数据集|注册|融合任务/.test(promptText)) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_fusion_publish
+    } else if (/统计|口径|聚合|研判成果|影响对比|分析模板/.test(promptText)) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_analytics_stats
+    } else if (/本体|知识图谱|知识检索|概念/.test(promptText)) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_ontology_query
+    } else if (promptText.includes('南海') || promptText.includes('菲律宾')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_scs_construct
     } else if (promptText.includes('构建') || promptText.includes('假设目标') || promptText.includes('态势场景')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_construct_patrol
@@ -110,8 +129,6 @@ export const useAgentStore = defineStore('agent', () => {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_simulation_deduction
     } else if (isMideastQuery) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_mideast_situation
-    } else {
-      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_fallback
     }
 
     if (scenarioMsgs && scenarioMsgs.length > 1) {
@@ -131,24 +148,25 @@ export const useAgentStore = defineStore('agent', () => {
       return
     }
 
+    // 未命中场景：按当前页面业务口径返回能力清单，引导改写指令（不做无依据的"已检索"答复）
+    const hints = PAGE_FALLBACK_HINTS[currentPath()] || PAGE_FALLBACK_HINTS['/workbench']
+    const hintLines = hints.map((h) => `- ${h}`).join('；\n')
     messages.value.push({
       id: `MSG-AGENT-${Date.now()}`,
       sender: 'agent',
-      content: `已结合当前场景上下文完成检索。针对您的指令："${promptText}"，系统已匹配到相关态势事实与领域本体关系，您可以点击下方操作卡片执行态势上图与研判。`,
+      content: `暂未能精确匹配该指令对应的研判场景。当前页面下智能研判助手支持：\n\n${hintLines}。\n\n请尝试换一种表述，或点击上方【指令模板】直接发起研判。`,
       timestamp: new Date().toLocaleTimeString(),
-      evidenceChain: MOCK_EVIDENCE_ITEMS.slice(0, 2),
-      actionCards: [
-        {
-          id: `ACT-${Date.now()}`,
-          actionType: 'highlight_relations',
-          title: '高亮显示战术关联关系',
-          description: '在三维视窗中点亮当前讨论的目标关系',
-          previewPayload: { targetId: 'Target-001' },
-          executed: false,
-          reversible: true,
-          basisExplanation: '基于当前场景事实层检索结论'
-        }
-      ]
+      intentUnderstanding: {
+        rawPrompt: promptText,
+        intentCategory: 'ask_knowledge',
+        intentTitle: '意图未精确匹配，返回当前页面能力清单引导',
+        targetScope: [],
+        spatialScope: '当前场景全域',
+        timeScope: '实时',
+        actionSequence: ['意图匹配失败', '按当前页面业务口径返回能力清单'],
+        confidence: 0.3,
+        isConfirmed: false
+      }
     })
   }
 
@@ -273,6 +291,14 @@ export const useAgentStore = defineStore('agent', () => {
     savedSessions.value = savedSessions.value.filter((x) => x.id !== id)
   }
 
+  /** 路由切换后同步页面上下文：仅当会话仍处于初始问候态时，将开场白刷新为当前页面口径 */
+  function syncPageContext() {
+    if (isThinking.value || replyTimer) return
+    if (messages.value.length === 1 && messages.value[0].sender === 'agent') {
+      messages.value[0].content = PAGE_GREETINGS[currentPath()] || PAGE_GREETINGS['/workbench']
+    }
+  }
+
   function openAgent() {
     isOpen.value = true
   }
@@ -303,6 +329,7 @@ export const useAgentStore = defineStore('agent', () => {
     saveCurrentSession,
     loadSavedSession,
     deleteSavedSession,
+    syncPageContext,
     openAgent,
     closeAgent,
     toggleAgent

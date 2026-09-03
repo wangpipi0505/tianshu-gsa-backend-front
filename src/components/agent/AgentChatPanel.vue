@@ -66,7 +66,7 @@
             </el-button>
             <template #dropdown>
               <el-dropdown-menu class="agent-template-dropdown">
-                <template v-for="(cat, cIdx) in sortedTemplates" :key="cat.category">
+                <template v-for="(cat, cIdx) in pageTemplates" :key="cat.category">
                   <el-dropdown-item disabled class="category-header-item">
                     {{ cat.category }}
                   </el-dropdown-item>
@@ -77,7 +77,7 @@
                   >
                     {{ p }}
                   </el-dropdown-item>
-                  <el-dropdown-item divided v-if="cIdx < CATEGORIZED_PROMPT_TEMPLATES.length - 1" />
+                  <el-dropdown-item divided v-if="cIdx < pageTemplates.length - 1" />
                 </template>
               </el-dropdown-menu>
             </template>
@@ -296,15 +296,20 @@ const pagePills = computed(() => {
   return FEATURED_PROMPTS
 })
 
-/** 按当前路由对模板分组排序：业务相关的排前面 */
-const sortedTemplates = computed(() => {
-  const priority = PAGE_TEMPLATE_PRIORITY[route.path] || []
-  const idx = (cat: { category: string }) => {
-    const i = priority.findIndex((p) => cat.category.includes(p))
-    return i >= 0 ? i : priority.length
-  }
-  return [...CATEGORIZED_PROMPT_TEMPLATES].sort((a, b) => idx(a) - idx(b))
+/** 按当前路由过滤模板分组：仅展示当前页面业务相关的分组，按页面声明顺序排列 */
+const pageTemplates = computed(() => {
+  const allowed = PAGE_TEMPLATE_PRIORITY[route.path] || []
+  if (!allowed.length) return CATEGORIZED_PROMPT_TEMPLATES
+  return allowed
+    .map((name) => CATEGORIZED_PROMPT_TEMPLATES.find((c) => c.category.includes(name)))
+    .filter((c): c is (typeof CATEGORIZED_PROMPT_TEMPLATES)[number] => Boolean(c))
 })
+
+// 页面切换时同步助手上下文（开场白随页面业务口径刷新）
+watch(
+  () => route.path,
+  () => agentStore.syncPageContext()
+)
 const inputPrompt = ref('')
 const messagesStreamRef = ref<HTMLElement | null>(null)
 
