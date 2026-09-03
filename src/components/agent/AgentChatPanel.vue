@@ -47,7 +47,7 @@
         <div class="compact-quick-bar">
           <div class="featured-pills">
             <div
-              v-for="(item, i) in FEATURED_PROMPTS"
+              v-for="(item, i) in pagePills"
               :key="i"
               class="quick-pill"
               @click="sendPrompt(item.prompt)"
@@ -268,6 +268,33 @@ function renderMarkdown(content: string): string {
 
 const agentStore = useAgentStore()
 const route = useRoute()
+
+/** 按当前路由返回页面专属快捷按钮 */
+const pagePills = computed(() => {
+  const path = route.path
+  if (path === '/fusion') {
+    return [
+      { icon: '📦', label: '数据集登记', prompt: '接收新数据集：南海海域高分光学与雷达观测数据集。' },
+      { icon: '🔗', label: '候选确认', prompt: '打开候选关联确认列表，逐条研判融合结果。' },
+      { icon: '📤', label: '资产发布', prompt: '发布新资产版本，生成数据产品包装。' }
+    ]
+  }
+  if (path === '/analytics') {
+    return [
+      { icon: '📊', label: '统计分析', prompt: '切换到"仅真实态势"口径进行统计分析。' },
+      { icon: '🔀', label: '事件影响对比', prompt: '对重点目标发起事件前后影响对比分析。' },
+      { icon: '💾', label: '专题沉淀', prompt: '将当前分析结果沉淀为专题研判成果。' }
+    ]
+  }
+  if (path === '/ontology') {
+    return [
+      { icon: '🧠', label: '本体检索', prompt: '在知识图谱中搜索目标本体相关概念。' },
+      { icon: '🕸️', label: '图谱浏览', prompt: '查看南海方向态势场景的领域本体定义。' }
+    ]
+  }
+  // 工作台默认
+  return FEATURED_PROMPTS
+})
 
 /** 按当前路由对模板分组排序：业务相关的排前面 */
 const sortedTemplates = computed(() => {
