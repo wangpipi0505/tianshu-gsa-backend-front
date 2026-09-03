@@ -419,6 +419,10 @@ export const useAnalysisStore = defineStore('analysis', () => {
     }
   }
 
+  function clearEventImpact() {
+    eventImpact.value = null
+  }
+
   function removeThematicAsset(id: string) {
     thematicAssets.value = thematicAssets.value.filter((t) => t.id !== id)
   }
@@ -466,6 +470,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     objectRangeLabel,
     publishCurrentThematic,
     removeThematicAsset,
+    clearEventImpact,
     countMode,
     spatialAgg,
     templates,

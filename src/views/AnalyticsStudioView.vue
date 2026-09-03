@@ -79,9 +79,27 @@
     <div class="thematic-assets-panel tactical-panel">
       <div class="tactical-panel-header">
         <span>事件前后影响对比</span>
-        <el-select size="small" style="width: 280px" placeholder="选择事件" @change="onEventImpact">
-          <el-option v-for="e in situationStore.events" :key="e.id" :label="e.eventName" :value="e.id" />
-        </el-select>
+        <div class="impact-controls">
+          <el-select
+            v-model="selectedEventId"
+            size="small"
+            style="width: 170px"
+            placeholder="选择事件"
+            clearable
+            @change="onEventImpact"
+          >
+            <el-option v-for="e in situationStore.events" :key="e.id" :label="e.eventName" :value="e.id" />
+          </el-select>
+          <el-button
+            size="small"
+            type="primary"
+            plain
+            :disabled="!analysisStore.eventImpact"
+            @click="projectImpact"
+          >
+            影响范围上图
+          </el-button>
+        </div>
       </div>
       <div v-if="analysisStore.eventImpact" class="assets-list">
         <div class="a-sub">{{ analysisStore.eventImpact.conclusion }}</div>
@@ -91,7 +109,6 @@
             <div class="a-sub">{{ c.before }} → {{ c.after }}</div>
           </div>
         </div>
-        <el-button size="small" type="primary" plain @click="projectImpact">影响范围上图</el-button>
       </div>
     </div>
     </div>
@@ -247,7 +264,13 @@ function saveTpl() {
   ElMessage.success(`模板「${name}」已保存`)
 }
 
+const selectedEventId = ref('')
+
 function onEventImpact(id: string) {
+  if (!id) {
+    analysisStore.clearEventImpact()
+    return
+  }
   analysisStore.computeEventImpact(id)
 }
 
