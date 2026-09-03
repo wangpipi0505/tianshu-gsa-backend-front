@@ -351,7 +351,7 @@ defineExpose({
 /* 绝对定位悬浮容器：直接浮动在 Cesium 三维地球上方，绝不占用文档流挤压地球 */
 .agent-sidebar-container {
   position: absolute;
-  top: 14px;
+  top: 70px;
   right: 16px;
   bottom: 14px;
   width: clamp(340px, 25vw, 440px);
