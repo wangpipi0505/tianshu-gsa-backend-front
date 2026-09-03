@@ -24,6 +24,8 @@ export const useAgentStore = defineStore('agent', () => {
   const activeIntent = ref<IntentUnderstanding | null>(null)
   const executedActions = ref<ActionCard[]>([])
   const sessionId = ref<string>('')
+  // 已保存的历史会话（方案 5.4.2：会话历史支持回看、重开和命名保存）
+  const savedSessions = ref<Array<{ id: string; name: string; savedAt: string; messages: ChatMessage[] }>>([])
   const featuredPrompts = FEATURED_PROMPTS
 
   function applyMock() {
@@ -218,6 +220,35 @@ export const useAgentStore = defineStore('agent', () => {
     executedActions.value = []
   }
 
+  /** 命名保存当前会话 */
+  function saveCurrentSession(name: string) {
+    savedSessions.value.unshift({
+      id: `SESS-SAVE-${Date.now()}`,
+      name: name || `会话 ${new Date().toLocaleString()}`,
+      savedAt: new Date().toLocaleString(),
+      messages: JSON.parse(JSON.stringify(messages.value))
+    })
+  }
+
+  /** 载入历史会话（完整还原消息与动作卡状态） */
+  function loadSavedSession(id: string) {
+    const s = savedSessions.value.find((x) => x.id === id)
+    if (!s) return
+    if (replyTimer) {
+      clearTimeout(replyTimer)
+      replyTimer = null
+    }
+    isThinking.value = false
+    messages.value = JSON.parse(JSON.stringify(s.messages))
+    activeIntent.value = null
+    executedActions.value = []
+  }
+
+  /** 删除历史会话 */
+  function deleteSavedSession(id: string) {
+    savedSessions.value = savedSessions.value.filter((x) => x.id !== id)
+  }
+
   function openAgent() {
     isOpen.value = true
   }
@@ -237,6 +268,7 @@ export const useAgentStore = defineStore('agent', () => {
     activeIntent,
     executedActions,
     sessionId,
+    savedSessions,
     featuredPrompts,
     applyMock,
     loadFromApi,
@@ -244,6 +276,9 @@ export const useAgentStore = defineStore('agent', () => {
     executeAction,
     rollbackAction,
     resetSession,
+    saveCurrentSession,
+    loadSavedSession,
+    deleteSavedSession,
     openAgent,
     closeAgent,
     toggleAgent

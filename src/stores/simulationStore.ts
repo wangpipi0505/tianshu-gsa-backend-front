@@ -24,6 +24,16 @@ export const useSimulationStore = defineStore('simulation', () => {
   const isRunning = ref<boolean>(false)
   const progressPercent = ref<number>(0)
   const simulatedTracks = ref<Array<{ time: string; lon: number; lat: number; alt: number; prob: number }>>([])
+  // 推演调用历史（方案 5.5.8：算法包与版本、参数、时间与结果引用全程留痕）
+  const runHistory = ref<Array<{
+    id: string
+    algorithmId: string
+    algorithmName: string
+    params: Record<string, unknown>
+    executedAt: string
+    status: 'completed'
+    comparison: Array<{ dimension: string; groundTruthFact: string; simulatedHypothesis: string; diffDescription: string }>
+  }>>([])
   // 最近一次推演实际使用的输入参数 (用于结果回显与比对表计算)
   const lastRunParams = ref<Record<string, unknown>>({})
   const comparisonData = ref([
@@ -53,6 +63,13 @@ export const useSimulationStore = defineStore('simulation', () => {
   function resetRunState() {
     progressPercent.value = 0
     isRunning.value = false
+  }
+
+  /** 载入某次历史推演的差异比对与参数（供「查看差异比对」） */
+  function showHistoryComparison(entry: { params: Record<string, unknown>; comparison: typeof comparisonData.value }) {
+    comparisonData.value = JSON.parse(JSON.stringify(entry.comparison))
+    lastRunParams.value = { ...entry.params }
+    progressPercent.value = 100
   }
 
   async function runSimulation(inputParams?: Record<string, unknown>) {
@@ -104,6 +121,16 @@ export const useSimulationStore = defineStore('simulation', () => {
         }
       ]
 
+      runHistory.value.unshift({
+        id: `RUN-${Date.now()}`,
+        algorithmId: selectedAlgorithmId.value,
+        algorithmName: algorithmPacks.value.find((a) => a.id === selectedAlgorithmId.value)?.name || selectedAlgorithmId.value,
+        params: { ...lastRunParams.value },
+        executedAt: new Date().toLocaleString(),
+        status: 'completed',
+        comparison: JSON.parse(JSON.stringify(comparisonData.value))
+      })
+
       progressPercent.value = 100
       isRunning.value = false
       return
@@ -131,10 +158,12 @@ export const useSimulationStore = defineStore('simulation', () => {
     progressPercent,
     simulatedTracks,
     lastRunParams,
+    runHistory,
     comparisonData,
     applyMock,
     loadFromApi,
     runSimulation,
-    resetRunState
+    resetRunState,
+    showHistoryComparison
   }
 })

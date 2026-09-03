@@ -60,4 +60,8 @@ export interface ThematicAsset {
   projectedToGlobe: boolean
   createdAt: string
   productVersionRef: string
+  /** 重新上图所需的场景引用信息 */
+  regionId?: string
+  center?: [number, number]
+  targetId?: string
 }

@@ -131,7 +131,7 @@ export const useFusionStore = defineStore('fusion', () => {
 
   async function registerDataset(dataset: DatasetProduct) {
     if (USE_MOCK) {
-      datasets.value.push({ ...dataset })
+      datasets.value.unshift({ ...dataset })
       return
     }
     const saved = await registerDatasetApi(dataset)

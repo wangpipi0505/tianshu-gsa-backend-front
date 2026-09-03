@@ -160,6 +160,25 @@
             <el-button size="small" circle @click="agentStore.resetSession" title="重置对话">
               <el-icon><Refresh /></el-icon>
             </el-button>
+            <el-dropdown trigger="click" @command="onSessionCommand">
+              <el-button size="small" circle title="会话记录">
+                <el-icon><FolderOpened /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="__save">命名保存当前会话</el-dropdown-item>
+                  <el-dropdown-item v-if="!agentStore.savedSessions.length" disabled divided>暂无已保存会话</el-dropdown-item>
+                  <template v-for="s in agentStore.savedSessions" :key="s.id">
+                    <el-dropdown-item divided :command="`load:${s.id}`">
+                      载入：{{ s.name }}（{{ s.messages.length }} 条）
+                    </el-dropdown-item>
+                    <el-dropdown-item :command="`del:${s.id}`" class="session-delete-item">
+                      删除：{{ s.name }}
+                    </el-dropdown-item>
+                  </template>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <el-button size="small" type="primary" :disabled="!inputPrompt.trim() || agentStore.isThinking" @click="onSubmit">
               <el-icon><Promotion /></el-icon>
               <span>发送研判指令</span>
@@ -174,7 +193,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
 import { marked } from 'marked'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
 import { useAgentStore } from '@/stores/agentStore'
 import { FEATURED_PROMPTS, CATEGORIZED_PROMPT_TEMPLATES } from '@/mock/mockAgentScenarios'
@@ -189,7 +208,8 @@ import {
   Refresh,
   Promotion,
   ArrowDown,
-  CircleCheck
+  CircleCheck,
+  FolderOpened
 } from '@element-plus/icons-vue'
 
 marked.setOptions({
@@ -241,6 +261,32 @@ function onSubmit() {
   if (!inputPrompt.value.trim() || agentStore.isThinking) return
   agentStore.sendMessage(inputPrompt.value)
   inputPrompt.value = ''
+}
+
+/** 会话记录命令：命名保存 / 载入 / 删除 */
+function onSessionCommand(command: string) {
+  if (command === '__save') {
+    ElMessageBox.prompt('请输入会话名称', '命名保存当前会话', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: `研判会话 ${new Date().toLocaleString()}`
+    })
+      .then(({ value }) => {
+        agentStore.saveCurrentSession((value || '').trim())
+        ElMessage.success('当前会话已命名保存，可在「会话记录」中载入')
+      })
+      .catch(() => undefined)
+    return
+  }
+  if (command.startsWith('load:')) {
+    agentStore.loadSavedSession(command.slice(5))
+    ElMessage.success('历史会话已载入')
+    return
+  }
+  if (command.startsWith('del:')) {
+    agentStore.deleteSavedSession(command.slice(4))
+    ElMessage.info('已删除该历史会话')
+  }
 }
 
 defineExpose({

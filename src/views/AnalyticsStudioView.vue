@@ -30,6 +30,33 @@
       <AssociationGraph />
     </div>
 
+    <!-- 已沉淀专题成果列表（方案 5.5.7：可重新加载至场景） -->
+    <div class="thematic-assets-panel tactical-panel">
+      <div class="tactical-panel-header">
+        <span>已沉淀专题成果</span>
+        <el-tag size="small" type="info">{{ analysisStore.thematicAssets.length }} 项</el-tag>
+      </div>
+      <div class="assets-list">
+        <div v-for="item in analysisStore.thematicAssets" :key="item.id" class="asset-row">
+          <div class="a-main">
+            <div class="a-title">{{ item.title }}</div>
+            <div class="a-sub">
+              {{ item.createdAt }} · 口径 {{ scopeLabel(item.sourceScope) }} · {{ item.conclusion.slice(0, 46) }}…
+            </div>
+          </div>
+          <div class="a-actions">
+            <el-button size="small" type="primary" plain :disabled="!item.regionId" @click="reloadAsset(item)">
+              重新上图
+            </el-button>
+            <el-button size="small" text type="danger" @click="removeAsset(item)">删除</el-button>
+          </div>
+        </div>
+        <div v-if="!analysisStore.thematicAssets.length" class="assets-empty">
+          暂无沉淀成果，点击右上角「沉淀为专题研判成果」生成
+        </div>
+      </div>
+    </div>
+
     <!-- 真实态势事实 vs 推演假设结果同场比对 -->
     <DeductionDiffView />
 
@@ -149,8 +176,12 @@ function onPublishThematicAsset(form: any) {
     conclusion: form.conclusion
   })
 
-  // 3. 写入分析成果留痕 (沉淀历史可在成果列表回溯)
-  void analysisStore.publishCurrentThematic(form.name, form.conclusion)
+  // 3. 写入分析成果留痕 (携带空间引用，支持成果列表重新上图)
+  void analysisStore.publishCurrentThematic(form.name, form.conclusion, {
+    regionId,
+    center: [centerLon, centerLat],
+    targetId
+  })
 
   // 4. 清空无关要素，仅点亮该研判专题与对应作战实体
   sceneStore.hideAllSituationLayers()
@@ -173,6 +204,42 @@ function onPublishThematicAsset(form: any) {
 function restoreAllLayers() {
   sceneStore.showAllSituationLayers()
   ElMessage.success('已恢复全域态势图层')
+}
+
+function scopeLabel(scope: string) {
+  const map: Record<string, string> = {
+    fact_only: '仅真实态势',
+    fact_and_work: '事实+工作内容',
+    work_only: '仅工作内容',
+    source_compare: '来源对比'
+  }
+  return map[scope] || scope
+}
+
+/** 重新上图：复用成果记录中的空间引用，复现发布时的专题呈现 */
+function reloadAsset(item: { regionId?: string; center?: [number, number]; targetId?: string; title: string }) {
+  const center = item.center
+  if (!item.regionId || !center) {
+    ElMessage.warning('该成果未携带空间引用信息，无法重新上图')
+    return
+  }
+  sceneStore.hideAllSituationLayers()
+  sceneStore.showOnlyTargetsAndFeatures(item.targetId ? [item.targetId] : [], [item.regionId])
+  if (item.targetId) {
+    situationStore.selectedTargetId = item.targetId
+  }
+  router.push('/')
+  setTimeout(() => cesiumController.flyToCoordinates([center], 550000), 100)
+  ElMessage.success(`专题成果「${item.title}」已重新上图`)
+}
+
+/** 删除成果记录与其空间包络 */
+function removeAsset(item: { id: string; regionId?: string; title: string }) {
+  analysisStore.removeThematicAsset(item.id)
+  if (item.regionId) {
+    situationStore.regions = situationStore.regions.filter((r) => r.id !== item.regionId)
+  }
+  ElMessage.info(`已删除专题成果「${item.title}」记录`)
 }
 </script>
 
@@ -202,6 +269,45 @@ function restoreAllLayers() {
   .header-actions {
     display: flex;
     gap: 10px;
+  }
+}
+
+.thematic-assets-panel {
+  padding: 14px;
+
+  .assets-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .asset-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: rgba(14, 25, 43, 0.7);
+      border: 1px solid rgba(0, 210, 255, 0.2);
+      border-radius: 4px;
+
+      .a-main {
+        flex: 1;
+        min-width: 0;
+        .a-title { font-size: 13px; font-weight: 700; color: #f0f6fc; }
+        .a-sub { font-size: 11px; color: #6e87ab; margin-top: 2px; }
+      }
+
+      .a-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    }
+
+    .assets-empty {
+      padding: 14px;
+      text-align: center;
+      font-size: 12px;
+      color: #4a5f7d;
+      border: 1px dashed rgba(110, 135, 171, 0.3);
+      border-radius: 4px;
+    }
   }
 }
 

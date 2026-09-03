@@ -50,6 +50,22 @@
         </el-form>
       </div>
 
+      <!-- 推演调用历史（方案 5.5.8 全程留痕） -->
+      <div v-if="simulationStore.runHistory.length" class="form-section">
+        <div class="section-title">推演历史记录</div>
+        <div v-for="h in simulationStore.runHistory" :key="h.id" class="history-item">
+          <div class="h-main">
+            <span class="h-name">{{ h.algorithmName }}</span>
+            <span class="h-time">{{ h.executedAt }}</span>
+          </div>
+          <div class="h-params">参数：{{ formatParams(h.params) }}</div>
+          <div class="h-actions">
+            <el-button size="small" text type="primary" @click="reapplyParams(h)">同参数回填</el-button>
+            <el-button size="small" text @click="showComparison(h)">查看差异比对</el-button>
+          </div>
+        </div>
+      </div>
+
       <!-- 推演计算进度 -->
       <div v-if="simulationStore.isRunning" class="sim-progress-box">
         <div class="progress-title">
@@ -101,6 +117,28 @@ const situationStore = useSituationStore()
 const currentAlg = computed(() =>
   simulationStore.algorithmPacks.find((a) => a.id === simulationStore.selectedAlgorithmId)
 )
+
+function formatParams(p: Record<string, unknown>) {
+  return Object.entries(p)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(' / ')
+}
+
+/** 将历史参数回填到当前表单 */
+function reapplyParams(h: { algorithmId: string; params: Record<string, unknown> }) {
+  simulationStore.selectedAlgorithmId = h.algorithmId
+  const alg = simulationStore.algorithmPacks.find((a) => a.id === h.algorithmId)
+  alg?.inputParams.forEach((p) => {
+    if (h.params[p.key] !== undefined) p.defaultVal = h.params[p.key]
+  })
+  ElMessage.success('历史参数已回填，点击「发起场景推演计算」执行')
+}
+
+/** 载入历史差异比对结果 */
+function showComparison(h: Parameters<typeof simulationStore.showHistoryComparison>[0]) {
+  simulationStore.showHistoryComparison(h)
+  ElMessage.success('已载入该次推演的差异比对结果（分析工作台同步可见）')
+}
 
 async function onRun() {
   // 收集表单实际填写的参数参与推演计算
@@ -157,6 +195,22 @@ defineExpose({
       color: #00d2ff;
       margin-bottom: 10px;
     }
+  }
+
+  .history-item {
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 3px;
+
+    .h-main {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      .h-name { color: #f0f6fc; font-weight: 600; }
+      .h-time { color: #6e87ab; font-family: var(--font-family-mono); font-size: 11px; }
+    }
+    .h-params { font-size: 11px; color: #6e87ab; margin-top: 2px; font-family: var(--font-family-mono); }
+    .h-actions { margin-top: 4px; display: flex; gap: 4px; }
   }
 
   .sim-progress-box {

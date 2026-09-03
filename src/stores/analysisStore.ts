@@ -256,7 +256,15 @@ export const useAnalysisStore = defineStore('analysis', () => {
     if (USE_MOCK) computeFromSituation()
   }
 
-  async function publishCurrentThematic(title: string, conclusion: string) {
+  function removeThematicAsset(id: string) {
+    thematicAssets.value = thematicAssets.value.filter((t) => t.id !== id)
+  }
+
+  async function publishCurrentThematic(
+    title: string,
+    conclusion: string,
+    extra?: { regionId?: string; center?: [number, number]; targetId?: string }
+  ) {
     const asset: ThematicAsset = {
       id: `THEMATIC-${Date.now()}`,
       title,
@@ -266,7 +274,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
       resultData: statisticalResult.value,
       projectedToGlobe: true,
       createdAt: new Date().toISOString(),
-      productVersionRef: currentModel.value.id
+      productVersionRef: currentModel.value.id,
+      ...extra
     }
     if (USE_MOCK) {
       thematicAssets.value.unshift(asset)
@@ -291,6 +300,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     setObjectRange,
     objectRangeTargetIds,
     objectRangeLabel,
-    publishCurrentThematic
+    publishCurrentThematic,
+    removeThematicAsset
   }
 })

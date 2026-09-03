@@ -59,6 +59,60 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- 数据集登记表单 -->
+    <el-dialog v-model="showRegisterDialog" title="接收新数据集登记" width="560px" append-to-body>
+      <el-form label-width="110px" size="small">
+        <el-form-item label="数据集名称" required>
+          <el-input v-model="registerForm.name" placeholder="请输入数据集名称" maxlength="40" show-word-limit />
+        </el-form-item>
+        <el-form-item label="业务主题" required>
+          <el-input v-model="registerForm.topic" placeholder="请输入业务主题" maxlength="40" />
+        </el-form-item>
+        <el-form-item label="来源 / 载荷">
+          <el-input v-model="registerForm.source" placeholder="如：机载光电侦察吊舱 / 联合情报中心" />
+        </el-form-item>
+        <el-form-item label="版本">
+          <el-input v-model="registerForm.version" placeholder="如 v1.0" style="width: 160px" />
+        </el-form-item>
+        <el-form-item label="覆盖时间">
+          <el-date-picker
+            v-model="registerForm.coverageStart"
+            type="datetime"
+            placeholder="覆盖起始时间"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
+          <el-date-picker
+            v-model="registerForm.coverageEnd"
+            type="datetime"
+            placeholder="覆盖结束时间"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%; margin-top: 4px"
+          />
+        </el-form-item>
+        <el-form-item label="覆盖空间">
+          <el-input v-model="registerForm.spatialCoverage" placeholder="如：东经118°-124°, 北纬22°-27°" />
+        </el-form-item>
+        <el-form-item label="主要对象类型">
+          <el-select v-model="registerForm.targetTypes" multiple placeholder="请选择" style="width: 100%">
+            <el-option value="空中目标" label="空中目标" />
+            <el-option value="水面舰艇" label="水面舰艇" />
+            <el-option value="地面设施" label="地面设施" />
+            <el-option value="情报报告" label="情报报告" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="内容说明">
+          <el-input v-model="registerForm.description" type="textarea" :rows="2" placeholder="数据内容与用途说明" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button size="small" @click="showRegisterDialog = false">取消</el-button>
+        <el-button size="small" type="primary" @click="confirmRegister">确认登记</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -80,6 +134,52 @@ const sceneStore = useSceneStore()
 const showRegisterDialog = ref(false)
 const showPreviewDrawer = ref(false)
 const selectedDataset = ref<any>(null)
+
+const registerForm = ref({
+  name: '',
+  topic: '',
+  source: '',
+  version: 'v1.0',
+  coverageStart: '',
+  coverageEnd: '',
+  spatialCoverage: '',
+  targetTypes: [] as string[],
+  description: ''
+})
+
+function confirmRegister() {
+  const f = registerForm.value
+  if (!f.name.trim() || !f.topic.trim()) {
+    ElMessage.warning('请填写数据集名称与业务主题后再登记')
+    return
+  }
+  const now = new Date()
+  const pad = (n: number) => (n < 10 ? `0${n}` : n)
+  const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+  fusionStore.registerDataset({
+    id: `DS-LOCAL-${now.getTime()}`,
+    name: f.name.trim(),
+    topic: f.topic.trim(),
+    timeCoverage: [f.coverageStart || ts, f.coverageEnd || ts],
+    spatialCoverage: f.spatialCoverage || '未指定',
+    targetTypes: f.targetTypes,
+    source: f.source || '本地登记',
+    version: f.version || 'v1.0',
+    receiveTime: ts,
+    recordCount: 0,
+    qualityScore: 100,
+    status: 'active',
+    referencedByJobs: [],
+    sampleRecords: f.description ? [{ description: f.description }] : []
+  })
+  showRegisterDialog.value = false
+  registerForm.value = {
+    name: '', topic: '', source: '', version: 'v1.0',
+    coverageStart: '', coverageEnd: '', spatialCoverage: '',
+    targetTypes: [], description: ''
+  }
+  ElMessage.success(`数据集「${f.name.trim()}」登记成功，可纳入融合工作`)
+}
 
 function previewDataset(row: any) {
   selectedDataset.value = row

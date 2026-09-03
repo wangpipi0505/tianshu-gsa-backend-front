@@ -464,6 +464,40 @@ export const useSceneStore = defineStore('scene', () => {
     thematicPackages.value.unshift(newPkg)
   }
 
+  /** 导入场景文件：登记为固定版本归档场景（结构与引用校验由调用方完成） */
+  function importScene(scene: SituationalScene) {
+    const archived: SituationalScene = { ...scene, referenceMode: 'fixed_version', isArchive: true }
+    sceneList.value.unshift(archived)
+    return archived
+  }
+
+  /** 复制派生：按保留选项生成新场景，不改变原场景与被引用的融合资产（方案 3.3/5.3.1） */
+  function duplicateScene(
+    sourceId: string,
+    options: { name: string; keepWorkContents: boolean; keepViewAndLayers: boolean }
+  ): SituationalScene | null {
+    const src =
+      sceneList.value.find((s) => s.id === sourceId) ||
+      (activeScene.value.id === sourceId ? activeScene.value : null)
+    if (!src) return null
+    const now = new Date().toLocaleString()
+    const copy: SituationalScene = {
+      ...src,
+      id: `SCENE-COPY-${Date.now()}`,
+      name: options.name,
+      referenceMode: 'fixed_version',
+      workContents: options.keepWorkContents ? JSON.parse(JSON.stringify(src.workContents || [])) : [],
+      cameraView: options.keepViewAndLayers ? JSON.parse(JSON.stringify(src.cameraView)) : src.cameraView,
+      visibleLayerIds: [...(src.visibleLayerIds || [])],
+      focusedTargetIds: options.keepViewAndLayers ? [...(src.focusedTargetIds || [])] : [],
+      createdAt: now,
+      updatedAt: now,
+      isArchive: false
+    }
+    sceneList.value.unshift(copy)
+    return copy
+  }
+
   /** 一键清空三维地球上的全部态势图层与要素 (除基础底图外) */
   function hideAllSituationLayers() {
     contentLayers.value.forEach((layer) => {
@@ -594,6 +628,8 @@ export const useSceneStore = defineStore('scene', () => {
     showTargetAndFeatures,
     showOnlyTargetsAndFeatures,
     addThematicAsset,
+    importScene,
+    duplicateScene,
     hideAllSituationLayers,
     showAllSituationLayers,
     toggleReferenceMode,
