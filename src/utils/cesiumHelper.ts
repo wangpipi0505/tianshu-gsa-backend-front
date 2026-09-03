@@ -335,6 +335,13 @@ export class CesiumController {
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
   }
 
+  /** 清除分析上图覆盖层（热力/网格/分区） */
+  public clearAnalysisOverlay() {
+    if (!this.viewer) return
+    this.analysisOverlayEntities.forEach((e) => this.viewer!.entities.remove(e))
+    this.analysisOverlayEntities.clear()
+  }
+
   /** 渲染已入库的标绘与标注工作内容（显隐受工作内容图层树控制，随增删自动同步） */
   public renderPlots(workContents: WorkContent[]) {
     if (!this.viewer) return
@@ -1394,6 +1401,10 @@ export class CesiumController {
 
   public renderEvents(events: SituationEvent[], targets: SituationTarget[], selectedEventId?: string | null) {
     if (!this.viewer) return
+    const sceneStore = useSceneStore()
+    // 事件属于事实内容：受 LAYER-FACTS 图层显隐控制（清空地图后随之隐藏）
+    const factsTier = sceneStore.contentLayers.find((l) => l.id === 'LAYER-FACTS')
+    const eventsVisible = factsTier ? factsTier.visible !== false : true
     const alive = new Set(events.map((e) => e.id))
     events.forEach((evt) => {
       const eid = `EVENT_${evt.id}`
@@ -1404,6 +1415,7 @@ export class CesiumController {
       if (!entity) {
         entity = this.viewer!.entities.add({
           id: eid,
+          show: eventsVisible,
           name: evt.eventName,
           position: pos,
           billboard: {
@@ -1425,6 +1437,7 @@ export class CesiumController {
         this.eventEntities.set(eid, entity)
       } else {
         entity.position = new Cesium.ConstantPositionProperty(pos)
+        entity.show = eventsVisible
         if (entity.billboard) {
           entity.billboard.scale = new Cesium.ConstantProperty(selectedEventId === evt.id ? 1.25 : 1)
         }
@@ -1440,6 +1453,7 @@ export class CesiumController {
         if (!link) {
           link = this.viewer!.entities.add({
             id: lid,
+            show: eventsVisible,
             polyline: {
               positions: [start, end],
               width: 1.4,
@@ -1452,6 +1466,7 @@ export class CesiumController {
           this.eventLinkEntities.set(lid, link)
         } else if (link.polyline) {
           link.polyline.positions = new Cesium.ConstantProperty([start, end])
+          link.show = eventsVisible
         }
       })
     })

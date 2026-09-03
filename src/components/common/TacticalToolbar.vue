@@ -166,6 +166,7 @@
 import { ref } from 'vue'
 import { useSceneStore } from '@/stores/sceneStore'
 import { useSituationStore } from '@/stores/situationStore'
+import { useAnalysisStore } from '@/stores/analysisStore'
 import { useIdentityStore } from '@/stores/identityStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -197,6 +198,7 @@ const emit = defineEmits([
 
 const sceneStore = useSceneStore()
 const situationStore = useSituationStore()
+const analysisStore = useAnalysisStore()
 const identityStore = useIdentityStore()
 
 function onExport() {
@@ -225,10 +227,17 @@ function clearAllMapSituations() {
       situationStore.openedPopupTargetIds = []
       situationStore.selectedTargetId = null
 
-      // 3. 清空空间量测与战术标绘
-      cesiumController.clearMeasurements()
+      // 3. 退出三态/分支/光轨等时空研判模式，复位时间轴
+      situationStore.toggleTemporalSlices(false)
+      situationStore.showFutureBranches = false
+      situationStore.showFutureTracks = false
 
-      // 4. 复位至三维地球全局全貌视角
+      // 4. 清空空间量测、战术标绘与分析上图覆盖层
+      cesiumController.clearMeasurements()
+      cesiumController.clearAnalysisOverlay()
+      analysisStore.clearEventImpact()
+
+      // 5. 复位至三维地球全局全貌视角
       cesiumController.flyToLocation(116.0, 26.0, 14500000, 0, -89.9)
 
       ElMessage.success('已清空三维数字地球上的全部态势要素、包络区与信息标牌！')
