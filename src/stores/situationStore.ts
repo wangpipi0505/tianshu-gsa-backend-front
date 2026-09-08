@@ -15,10 +15,12 @@ import type {
   EvidenceItem,
   TemporalMode,
   TemporalPhase,
-  TemporalSlice
+  TemporalSlice,
+  JammingPair
 } from '@/types/situation'
 import { fetchSituationSnapshot, resolveTargetConflict } from '@/api/situation'
 import { USE_MOCK, cloneMock } from '@/config/dataSource'
+import { applyRadarVisualizationDefaults } from '@/config/radarVisualization'
 import {
   MOCK_TARGETS,
   MOCK_EVENTS,
@@ -78,6 +80,9 @@ export const useSituationStore = defineStore('situation', () => {
   // 特性展示控制
   const showRadarCones = ref<boolean>(true)
   const showWeatherEffect = ref<boolean>(true)
+  /** 电磁对抗效果总开关；开启后按时间轴时段显示受扰与施扰效果 */
+  const showJammingEffect = ref<boolean>(false)
+  const jammingPairs = ref<JammingPair[]>([])
 
   // 4D 时空态势演变：起止由场景数据推导，T0 保持当前基准锚点
   const presentAnchorTime = '2026-08-25 15:30:00'
@@ -151,6 +156,47 @@ export const useSituationStore = defineStore('situation', () => {
     if (Math.abs(curMs - presentMs) < 60000) return 'present'
     return curMs < presentMs ? 'history' : 'future'
   })
+
+  function rebuildJammingPairs() {
+    const pairs: JammingPair[] = []
+    targets.value.forEach((target) => {
+      const jamming = target.sensorCoverage?.jamming
+      if (!jamming?.isJammed) return
+      jamming.jammerTargetIds.forEach((jammerTargetId) => {
+        pairs.push({
+          jammedTargetId: target.id,
+          jammerTargetId,
+          startTime: jamming.startTime,
+          endTime: jamming.endTime
+        })
+      })
+    })
+    jammingPairs.value = pairs
+  }
+
+  function isJammingPairInCurrentWindow(pair: JammingPair) {
+    const now = new Date(currentPlaybackTime.value).getTime()
+    const start = pair.startTime ? new Date(pair.startTime).getTime() : Number.NEGATIVE_INFINITY
+    const end = pair.endTime ? new Date(pair.endTime).getTime() : Number.POSITIVE_INFINITY
+    return now >= start && now <= end
+  }
+
+  const activeJammingPairs = computed(() =>
+    showJammingEffect.value
+      ? jammingPairs.value.filter(isJammingPairInCurrentWindow)
+      : []
+  )
+
+  function isJammingActiveForTarget(targetId: string) {
+    return activeJammingPairs.value.some((pair) => pair.jammedTargetId === targetId)
+  }
+
+  function setJammingEffect(enabled?: boolean) {
+    showJammingEffect.value = enabled ?? !showJammingEffect.value
+    if (showJammingEffect.value) {
+      showRadarCones.value = true
+    }
+  }
 
   // 当前选中的目标详细对象
   const visibleTargets = computed(() => {
@@ -287,6 +333,7 @@ export const useSituationStore = defineStore('situation', () => {
         target.latitude = trackPoints[0].latitude
         target.altitude = trackPoints[0].altitude
         target.speedKnots = trackPoints[0].speedKnots || target.speedKnots
+        target.headingDeg = trackPoints[0].headingDeg ?? target.headingDeg
         return
       }
 
@@ -296,6 +343,7 @@ export const useSituationStore = defineStore('situation', () => {
         target.latitude = last.latitude
         target.altitude = last.altitude
         target.speedKnots = last.speedKnots || target.speedKnots
+        target.headingDeg = last.headingDeg ?? target.headingDeg
         return
       }
 
@@ -312,6 +360,10 @@ export const useSituationStore = defineStore('situation', () => {
             (trackPoints[i].speedKnots || 500) +
               ((trackPoints[i + 1].speedKnots || 500) - (trackPoints[i].speedKnots || 500)) * ratio
           )
+          const startHeading = trackPoints[i].headingDeg ?? target.headingDeg
+          const endHeading = trackPoints[i + 1].headingDeg ?? startHeading
+          const deltaHeading = ((endHeading - startHeading + 540) % 360) - 180
+          target.headingDeg = (startHeading + deltaHeading * ratio + 360) % 360
           break
         }
       }
@@ -375,7 +427,7 @@ export const useSituationStore = defineStore('situation', () => {
   }
 
   function applyMock() {
-    targets.value = cloneMock(MOCK_TARGETS)
+    targets.value = applyRadarVisualizationDefaults(cloneMock(MOCK_TARGETS))
     events.value = cloneMock(MOCK_EVENTS)
     relations.value = cloneMock(MOCK_RELATIONS)
     regions.value = cloneMock(MOCK_REGIONS)
@@ -384,6 +436,7 @@ export const useSituationStore = defineStore('situation', () => {
     activeAssessment.value = cloneMock(MOCK_PRIMARY_ASSESSMENT)
     activeSliceKey.value = null
     activeSliceTargetId.value = ''
+    rebuildJammingPairs()
     ensureActiveSliceTarget()
     refreshTimelineFromData()
   }
@@ -394,7 +447,7 @@ export const useSituationStore = defineStore('situation', () => {
       return
     }
     const snapshot = await fetchSituationSnapshot(productVersion)
-    targets.value = snapshot.targets || []
+    targets.value = applyRadarVisualizationDefaults(snapshot.targets || [])
     events.value = snapshot.events || []
     relations.value = snapshot.relations || []
     regions.value = snapshot.regions || []
@@ -404,6 +457,7 @@ export const useSituationStore = defineStore('situation', () => {
     productVersionId.value = snapshot.productVersionId || ''
     assetVersionId.value = snapshot.assetVersionId || ''
     activeSliceKey.value = null
+    rebuildJammingPairs()
     ensureActiveSliceTarget()
     refreshTimelineFromData()
   }
@@ -601,6 +655,9 @@ export const useSituationStore = defineStore('situation', () => {
     focusedTargetIds,
     showRadarCones,
     showWeatherEffect,
+    showJammingEffect,
+    jammingPairs,
+    activeJammingPairs,
     presentAnchorTime,
     timelineRange,
     timelineExtent,
@@ -640,6 +697,8 @@ export const useSituationStore = defineStore('situation', () => {
     pausePlayback,
     togglePlay,
     setSpeed,
+    setJammingEffect,
+    isJammingActiveForTarget,
     setTemporalMode,
     toggleFutureTracks,
     toggleTemporalSlices,

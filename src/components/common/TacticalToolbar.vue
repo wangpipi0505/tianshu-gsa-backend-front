@@ -79,6 +79,18 @@
       </el-button>
     </el-tooltip>
 
+    <el-tooltip content="显示或关闭雷达受扰收缩、方位缺口及施扰射线" placement="bottom">
+      <el-button
+        size="small"
+        :type="situationStore.showJammingEffect ? 'danger' : 'default'"
+        plain
+        @click="toggleJammingEffect"
+      >
+        <el-icon><Connection /></el-icon>
+        <span>对抗干扰</span>
+      </el-button>
+    </el-tooltip>
+
     <div class="divider"></div>
 
     <!-- 视角书签 -->
@@ -184,7 +196,8 @@ import {
   Document,
   Download,
   Plus,
-  Search
+  Search,
+  Connection
 } from '@element-plus/icons-vue'
 
 const emit = defineEmits([
@@ -231,6 +244,7 @@ function clearAllMapSituations() {
       situationStore.toggleTemporalSlices(false)
       situationStore.showFutureBranches = false
       situationStore.showFutureTracks = false
+      situationStore.setJammingEffect(false)
 
       // 4. 清空空间量测、战术标绘与分析上图覆盖层
       cesiumController.clearMeasurements()
@@ -316,6 +330,24 @@ function clearMeasurements() {
   activeTool.value = null
   cesiumController.clearMeasurements()
   ElMessage.info('已清除地图上的所有量测与临时标绘')
+}
+
+function toggleJammingEffect() {
+  const next = !situationStore.showJammingEffect
+  situationStore.setJammingEffect(next)
+  if (!next) {
+    ElMessage.info('已关闭电磁对抗干扰效果，雷达覆盖恢复基准状态')
+    return
+  }
+
+  const involvedIds = Array.from(
+    new Set(situationStore.jammingPairs.flatMap((pair) => [pair.jammerTargetId, pair.jammedTargetId]))
+  )
+  const involvedTargets = situationStore.targets.filter((target) => involvedIds.includes(target.id))
+  if (involvedTargets.length > 0) {
+    cesiumController.flyToTargets(involvedTargets)
+  }
+  ElMessage.success('已开启电磁对抗推演：受扰雷达将按时间轴显示覆盖收缩、方位缺口与施扰射线')
 }
 
 function resetGlobalView() {

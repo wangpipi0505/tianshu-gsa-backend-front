@@ -201,6 +201,23 @@ function execute() {
     return
   }
 
+  if (props.action.actionType === 'simulate_jamming') {
+    situationStore.setJammingEffect(true)
+    const involvedIds = new Set(
+      situationStore.jammingPairs.flatMap((pair) => [pair.jammerTargetId, pair.jammedTargetId])
+    )
+    const involvedTargets = situationStore.targets.filter((target) => involvedIds.has(target.id))
+    cesiumController.flyToTargets(involvedTargets.length ? involvedTargets : situationStore.targets)
+    ElMessage.success('态势上图成功：已开启电磁对抗推演，受扰雷达覆盖将收缩并显示方位缺口与有源干扰射线！')
+    return
+  }
+
+  if (props.action.actionType === 'stop_jamming') {
+    situationStore.setJammingEffect(false)
+    ElMessage.success('已停止电磁对抗推演，雷达覆盖恢复基准状态！')
+    return
+  }
+
   if (props.action.actionType === 'toggle_thematic_layer') {
     const allCoords = situationStore.regions.flatMap((r) => r.coordinates)
     if (allCoords.length > 0) {
@@ -345,6 +362,12 @@ function rollback() {
     ElMessage.info('已暂停 4D 动态回放并复位时间轴')
   } else if (props.action.actionType === 'toggle_radar_cones') {
     ElMessage.info('雷达扫描锥图层受图层树控制，可在【图层控制】中按需显隐')
+  } else if (props.action.actionType === 'simulate_jamming') {
+    situationStore.setJammingEffect(false)
+    ElMessage.info('已撤销电磁对抗推演，受扰雷达覆盖恢复基准状态')
+  } else if (props.action.actionType === 'stop_jamming') {
+    situationStore.setJammingEffect(true)
+    ElMessage.info('已撤销停止操作，恢复电磁对抗推演效果')
   } else if (
     props.action.actionType === 'focus_warship' ||
     props.action.actionType === 'focus_fighter' ||

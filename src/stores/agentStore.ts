@@ -91,6 +91,8 @@ export const useAgentStore = defineStore('agent', () => {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_construct_patrol
     } else if (promptText.includes('清空') || promptText.includes('清屏') || promptText.includes('清除态势')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_clear_situations
+    } else if (/有源干扰|电子对抗|电磁对抗|干扰.*(?:推演|压制)|(?:推演|压制).*干扰/.test(promptText)) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_electronic_jamming
     } else if (promptText.includes('分支') || promptText.includes('多分支') || promptText.includes('规避') || promptText.includes('压制')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_future_branches_viper
     } else if (

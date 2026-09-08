@@ -10,6 +10,7 @@ export const FEATURED_PROMPTS = [
   { icon: '🔮', label: '未来态势预测与推演', prompt: '请推演分析敌重点战机 (VIPER-01) 从历史机动到未来 30 分钟的演变过程与威胁走向。' },
   { icon: '🚢', label: '我方主力舰艇战备状态', prompt: '我想看一下我方舰艇的当前信息和状态。' },
   { icon: '🛡️', label: '中东波斯湾海空态势', prompt: '中东波斯湾与霍尔木兹海峡当前态势如何？' },
+  { icon: '📡', label: '电磁对抗干扰推演', prompt: '对重点方向实施有源干扰压制推演，查看受扰雷达覆盖变化。' },
   { icon: '🌊', label: '南海菲律宾态势构建', prompt: '构建我国南海与菲律宾方向的态势场景：我方维权巡逻编队与外军舰机对峙。' }
 ]
 
@@ -42,7 +43,8 @@ export const CATEGORIZED_PROMPT_TEMPLATES = [
     category: '战术关系与雷达扫描锥',
     items: [
       '分析目标之间的战术关系（伴飞？结队？打击？预警指挥？）并在三维地球上标绘。',
-      '查看各实体的雷达探测照射范围及传感器覆盖锥（预警机/驱逐舰/地导/战机）。'
+      '查看各实体的雷达探测照射范围及传感器覆盖锥（预警机/驱逐舰/地导/战机）。',
+      '对重点方向实施有源干扰压制推演，查看受扰雷达覆盖变化。'
     ]
   },
   {
@@ -152,7 +154,7 @@ export const PAGE_FALLBACK_HINTS: Record<string, string[]> = {
     '**重点实体检索**：如"我想看一下我方舰艇的当前信息和状态"、"查看敌方重点突防战机"',
     '**三态切片与历史复盘**：如"对比历史、当前与未来三态时空切片"、"复盘 VIPER-01 的历史航迹"',
     '**战区态势与包络**：如"中东波斯湾与霍尔木兹海峡当前态势如何？"、"加载红黄蓝三色战区包络"',
-    '**战术关系与雷达覆盖**：如"分析目标之间的战术关系并在三维地球上标绘"、"查看各实体的雷达探测覆盖锥"',
+    '**战术关系、雷达覆盖与电磁对抗**：如"分析目标之间的战术关系并在三维地球上标绘"、"查看各实体的雷达探测覆盖锥"、"实施有源干扰压制推演"',
     '**推演与回放**：如"开启全过程 4D 时空态势动态演变推流回放"、"针对重点目标发起低空超音速突防推演"'
   ],
   '/fusion': [
@@ -520,7 +522,57 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
     }
   ],
 
-  // 场景 3：红黄蓝三色战区包络与防空拦截区
+  // 场景 3：电子对抗干扰推演（仅表达当前推演输入下的覆盖变化）
+  scenario_electronic_jamming: [
+    {
+      id: 'MSG-USER-JAMMING',
+      sender: 'user',
+      content: '对重点方向实施有源干扰压制推演，查看受扰雷达覆盖变化。',
+      timestamp: '2026-08-25 15:30:00'
+    },
+    {
+      id: 'MSG-AGENT-JAMMING',
+      sender: 'agent',
+      content: '已按当前态势时段装载三组电磁对抗推演关系：\n\n- **东南海峡**：敌方伴飞电子战机对我方长沙舰雷达实施压制，覆盖距离由 260 公里收缩至 120 公里；\n- **南海方向**：外军 P-8A 对我方巡航护卫舰实施电子压制，覆盖距离由 180 公里收缩至 80 公里；\n- **阿曼湾方向**：外军伴随电子战机对焦作舰雷达实施压制，覆盖距离由 260 公里收缩至 140 公里。\n\n确认后将在三维地球上显示受扰覆盖收缩、受扰方位缺口、扫描闪烁及施扰方干扰射线。该效果仅用于当前电磁环境态势推演，可一键撤销。',
+      timestamp: '2026-08-25 15:30:02',
+      intentUnderstanding: {
+        rawPrompt: '对重点方向实施有源干扰压制推演，查看受扰雷达覆盖变化。',
+        intentCategory: 'do_simulation',
+        intentTitle: '雷达扫描与电子对抗干扰效果推演',
+        targetScope: ['Target-003', 'Target-SCS-06', 'Target-ME-001', 'Target-005', 'Target-SCS-05', 'Target-ME-004'],
+        spatialScope: '东南海峡、南海方向与阿曼湾重点海空域',
+        timeScope: '2026-08-25 15:00:00 至 16:00:00',
+        actionSequence: ['核对施扰与受扰目标', '启用受扰雷达覆盖形变', '显示施扰扇面与干扰射线'],
+        confidence: 0.93,
+        isConfirmed: true
+      },
+      evidenceChain: MOCK_EVIDENCE_ITEMS,
+      actionCards: [
+        {
+          id: 'ACT-JAMMING-01',
+          actionType: 'simulate_jamming',
+          title: '电磁对抗干扰效果态势上图',
+          description: '显示三组受扰雷达的覆盖收缩、方位缺口、扫描闪烁及施扰方干扰射线',
+          previewPayload: { pairs: 3, timeWindow: ['2026-08-25 15:00:00', '2026-08-25 16:00:00'] },
+          executed: false,
+          reversible: true,
+          basisExplanation: '基于当前场景中已配置的施扰方、受扰方与有效探测距离参数'
+        },
+        {
+          id: 'ACT-JAMMING-STOP-01',
+          actionType: 'stop_jamming',
+          title: '停止电磁对抗推演并恢复雷达覆盖',
+          description: '关闭干扰效果，恢复受扰雷达的基准覆盖范围',
+          previewPayload: {},
+          executed: false,
+          reversible: true,
+          basisExplanation: '对抗推演效果可回退，不改变态势事实层数据'
+        }
+      ]
+    }
+  ],
+
+  // 场景 4：红黄蓝三色战区包络与防空拦截区
   scenario_thematic_regions: [
     {
       id: 'MSG-USER-REG',

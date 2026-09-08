@@ -529,6 +529,14 @@
         "nodeType": "work_item",
         "visible": true,
         "color": "#b37feb"
+      },
+      {
+        "id": "WORK-JAMMING-EFFECT",
+        "name": "电磁对抗干扰效果（覆盖收缩、方位缺口与干扰射线）",
+        "workItemId": "WORK-JAMMING-EFFECT",
+        "nodeType": "work_item",
+        "visible": true,
+        "color": "#ff4d4f"
       }
     ]
   }

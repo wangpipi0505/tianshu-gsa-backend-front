@@ -79,6 +79,8 @@ export interface ActionCard {
     | 'focus_fighter'
     | 'highlight_relations'
     | 'toggle_radar_cones'
+    | 'simulate_jamming'
+    | 'stop_jamming'
     | 'toggle_thematic_layer'
     | 'apply_weather_compensation'
     | 'start_temporal_playback'

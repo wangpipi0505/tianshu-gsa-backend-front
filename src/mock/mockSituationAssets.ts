@@ -60,7 +60,18 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 260,
       scanAngleDeg: 360,
       coneColor: '#00d2ff',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 4,
+      mountType: 'omni',
+      jamming: {
+        isJammed: true,
+        jammerTargetIds: ['Target-005'],
+        effectiveRangeKm: 120,
+        notchSpanDeg: 24,
+        flicker: true,
+        startTime: '2026-08-25 15:00:00',
+        endTime: '2026-08-25 16:00:00'
+      }
     },
     predictedTracks: [
       { longitude: 119.60, latitude: 24.25, altitude: 0, speedKnots: 24, headingDeg: 45, timestamp: '2026-08-25 15:30:00' },
@@ -179,7 +190,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 180,
       scanAngleDeg: 120,
       coneColor: '#ff4d4f',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 3,
+      mountType: 'firecontrol'
     },
     conflicts: [
       {
@@ -243,7 +256,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 140,
       scanAngleDeg: 140,
       coneColor: '#faad14',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 4,
+      mountType: 'sector'
     },
     conflicts: [],
     evidenceIds: ['E001', 'E004'],
@@ -296,7 +311,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 450,
       scanAngleDeg: 360,
       coneColor: '#faad14',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 5,
+      mountType: 'omni'
     },
     conflicts: [],
     evidenceIds: ['E002', 'E004'],
@@ -331,7 +348,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 280,
       scanAngleDeg: 120,
       coneColor: '#52c41a',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 3,
+      mountType: 'firecontrol'
     },
     conflicts: [],
     evidenceIds: ['E003'],
@@ -380,7 +399,18 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 260,
       scanAngleDeg: 360,
       coneColor: '#00d2ff',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 4,
+      mountType: 'omni',
+      jamming: {
+        isJammed: true,
+        jammerTargetIds: ['Target-ME-004'],
+        effectiveRangeKm: 140,
+        notchSpanDeg: 24,
+        flicker: true,
+        startTime: '2026-08-25 15:00:00',
+        endTime: '2026-08-25 16:00:00'
+      }
     },
     conflicts: [],
     evidenceIds: ['E-ME-001'],
@@ -437,7 +467,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 180,
       scanAngleDeg: 120,
       coneColor: '#ff4d4f',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 3,
+      mountType: 'firecontrol'
     },
     conflicts: [],
     evidenceIds: ['E-ME-002'],
@@ -491,7 +523,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 420,
       scanAngleDeg: 360,
       coneColor: '#faad14',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 5,
+      mountType: 'omni'
     },
     conflicts: [],
     evidenceIds: ['E-ME-002'],
@@ -546,7 +580,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 150,
       scanAngleDeg: 140,
       coneColor: '#faad14',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 4,
+      mountType: 'sector'
     },
     conflicts: [],
     evidenceIds: ['E-ME-002'],
@@ -582,7 +618,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 280,
       scanAngleDeg: 120,
       coneColor: '#52c41a',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 3,
+      mountType: 'firecontrol'
     },
     conflicts: [],
     evidenceIds: ['E-ME-003'],
@@ -618,7 +656,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 260,
       scanAngleDeg: 360,
       coneColor: '#00d2ff',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 4,
+      mountType: 'omni'
     },
     conflicts: [],
     evidenceIds: [],
@@ -695,7 +735,9 @@ export const MOCK_TARGETS: SituationTarget[] = [
       radarRangeKm: 420,
       scanAngleDeg: 360,
       coneColor: '#00d2ff',
-      isScanning: true
+      isScanning: true,
+      scanPeriodSec: 5,
+      mountType: 'omni'
     },
     conflicts: [],
     evidenceIds: [],
@@ -745,6 +787,23 @@ export const MOCK_TARGETS: SituationTarget[] = [
       sensorMode: '对海/对空搜索雷达值班',
       datalinkState: '卫通数据链在线',
       fuelOrHealthPercent: 91
+    },
+    sensorCoverage: {
+      radarRangeKm: 180,
+      scanAngleDeg: 120,
+      coneColor: '#00d2ff',
+      isScanning: true,
+      scanPeriodSec: 4,
+      mountType: 'sector',
+      jamming: {
+        isJammed: true,
+        jammerTargetIds: ['Target-SCS-05'],
+        effectiveRangeKm: 80,
+        notchSpanDeg: 24,
+        flicker: true,
+        startTime: '2026-08-25 14:30:00',
+        endTime: '2026-08-25 15:50:00'
+      }
     },
     conflicts: [],
     evidenceIds: [],

@@ -12,6 +12,28 @@ import type { WorkContent } from '@/types/scene'
 
 export type BasemapType = 'satellite' | 'dark' | 'street' | 'hillshade' | 'imagery_anno'
 
+interface RadarVisualSet {
+  base: Cesium.Entity
+  notch: Cesium.Entity
+  projection: Cesium.Entity
+  sweep: Cesium.Entity
+  nearTrail: Cesium.Entity
+  farTrail: Cesium.Entity
+  sweepArc: Cesium.Entity
+}
+
+interface JammingVisualSet {
+  cone: Cesium.Entity
+  beam: Cesium.Entity
+  label: Cesium.Entity
+}
+
+interface RangeTransition {
+  from: number
+  to: number
+  startedAt: number
+}
+
 export class CesiumController {
   public viewer: Cesium.Viewer | null = null
   private entityMap: Map<string, Cesium.Entity> = new Map()
@@ -21,6 +43,13 @@ export class CesiumController {
   private regionEntities: Map<string, Cesium.Entity> = new Map()
   private regionLabels: Map<string, Cesium.Entity> = new Map()
   private radarConeEntities: Map<string, Cesium.Entity> = new Map()
+  private radarVisualSets: Map<string, RadarVisualSet> = new Map()
+  private jammingVisualSets: Map<string, JammingVisualSet> = new Map()
+  private radarVisibility: Map<string, boolean> = new Map()
+  private radarRangeTransitions: Map<string, RangeTransition> = new Map()
+  private latestTargets: Map<string, SituationTarget> = new Map()
+  private radarAnimationSeconds = 0
+  private removeRadarClockListener: (() => void) | null = null
   private futureTrackEntities: Map<string, Cesium.Entity> = new Map()
   private futureBranchEntities: Map<string, Cesium.Entity> = new Map()
   private temporalSliceEntities: Map<string, Cesium.Entity> = new Map()
@@ -57,6 +86,16 @@ export class CesiumController {
       scene3DOnly: true,
       shadows: false,
       terrainProvider: new Cesium.EllipsoidTerrainProvider()
+    })
+
+    const radarEpoch = Cesium.JulianDate.clone(this.viewer.clock.currentTime)
+    this.removeRadarClockListener = this.viewer.clock.onTick.addEventListener((clock) => {
+      this.radarAnimationSeconds = Math.max(0, Cesium.JulianDate.secondsDifference(clock.currentTime, radarEpoch))
+      this.radarVisualSets.forEach((_set, targetId) => this.refreshRadarVisualVisibility(targetId))
+      this.refreshJammingVisualVisibility()
+      if (this.radarVisualSets.size || this.jammingVisualSets.size) {
+        this.viewer?.scene.requestRender()
+      }
     })
 
     // 彻底隐藏 Cesium 原生版权与 Logo 标识
@@ -435,6 +474,7 @@ export class CesiumController {
     selectedId?: string
   ) {
     if (!this.viewer) return
+    this.latestTargets = new Map(targets.map((target) => [target.id, target]))
     const sceneStore = useSceneStore()
 
     targets.forEach((target) => {
@@ -519,58 +559,503 @@ export class CesiumController {
       }
 
       this.renderTargetTrack(target, isTrackVisible && !shouldDim)
-      this.renderSingleRadarCone(target, isRadarVisible && !shouldDim)
+      this.renderSingleRadarCone(target, isRadarVisible && situationStore.showRadarCones && !shouldDim)
       this.syncHighlightRing(target, isHighlighted && pointVisible)
     })
 
+    this.renderJammingEffects(targets)
     this.pruneStaleTargets(targets)
   }
 
   public updateTargetPositions(targets: SituationTarget[]) {
     if (!this.viewer) return
+    this.latestTargets = new Map(targets.map((target) => [target.id, target]))
     targets.forEach((target) => {
       const entity = this.entityMap.get(target.id)
-      if (!entity) return
       const pos = Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
-      entity.position = new Cesium.ConstantPositionProperty(pos)
-      const cone = this.radarConeEntities.get(`RADAR_CONE_${target.id}`)
-      if (cone) cone.position = new Cesium.ConstantPositionProperty(pos)
+      if (entity) entity.position = new Cesium.ConstantPositionProperty(pos)
+      this.renderSingleRadarCone(target, this.radarVisibility.get(target.id) ?? false)
       const ring = this.highlightEntities.get(`HL_${target.id}`)
       if (ring) ring.position = new Cesium.ConstantPositionProperty(pos)
     })
+    this.renderJammingEffects(targets)
   }
 
-  /** 渲染单个目标的 3D 传感器雷达扫描锥/探测穹顶 */
+  /** 渲染单个目标的三维雷达覆盖、扫描亮楔、余辉与地面照射投影。 */
   private renderSingleRadarCone(target: SituationTarget, isVisible: boolean) {
     if (!this.viewer || !target.sensorCoverage) return
+    this.radarVisibility.set(target.id, isVisible)
+    this.syncRadarRangeTransition(target)
+    this.ensureRadarVisualSet(target.id)
+    this.refreshRadarVisualVisibility(target.id)
+  }
 
-    const coneId = `RADAR_CONE_${target.id}`
-    let coneEntity = this.radarConeEntities.get(coneId)
+  private ensureRadarVisualSet(targetId: string) {
+    const existing = this.radarVisualSets.get(targetId)
+    if (existing || !this.viewer) return existing
 
-    const center = Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
-    const radiusMeters = target.sensorCoverage.radarRangeKm * 1000
-    const color = Cesium.Color.fromCssColorString(target.sensorCoverage.coneColor).withAlpha(0.14)
-    const outlineColor = Cesium.Color.fromCssColorString(target.sensorCoverage.coneColor).withAlpha(0.65)
+    const set: RadarVisualSet = {
+      base: this.createRadarVolume(`RADAR_CONE_${targetId}`, targetId, 'base'),
+      notch: this.createRadarVolume(`RADAR_CONE_NOTCH_${targetId}`, targetId, 'notch'),
+      projection: this.createRadarProjection(`RADAR_PROJECTION_${targetId}`, targetId),
+      sweep: this.createRadarVolume(`RADAR_SWEEP_${targetId}`, targetId, 'sweep'),
+      nearTrail: this.createRadarVolume(`RADAR_TRAIL_NEAR_${targetId}`, targetId, 'nearTrail'),
+      farTrail: this.createRadarVolume(`RADAR_TRAIL_FAR_${targetId}`, targetId, 'farTrail'),
+      sweepArc: this.createRadarSweepArc(`RADAR_SWEEP_ARC_${targetId}`, targetId)
+    }
+    this.radarVisualSets.set(targetId, set)
+    this.radarConeEntities.set(`RADAR_CONE_${targetId}`, set.base)
+    return set
+  }
 
-    if (!coneEntity) {
-      coneEntity = this.viewer!.entities.add({
-        id: coneId,
-        show: isVisible,
-        position: center,
+  private createRadarVolume(
+    id: string,
+    targetId: string,
+    layer: 'base' | 'notch' | 'sweep' | 'nearTrail' | 'farTrail'
+  ) {
+    return this.viewer!.entities.add({
+      id,
+      show: false,
+      position: new Cesium.CallbackPositionProperty(() => this.targetPosition(targetId), false),
+      orientation: new Cesium.CallbackProperty(() => this.radarOrientation(targetId), false),
+      ellipsoid: {
+        radii: new Cesium.CallbackProperty(() => this.radarRadii(targetId), false),
+        minimumClock: new Cesium.CallbackProperty(() => this.radarClockWindow(targetId, layer)[0], false),
+        maximumClock: new Cesium.CallbackProperty(() => this.radarClockWindow(targetId, layer)[1], false),
+        minimumCone: new Cesium.ConstantProperty(0),
+        maximumCone: new Cesium.CallbackProperty(() => this.radarMaximumCone(targetId), false),
+        material: new Cesium.ColorMaterialProperty(
+          new Cesium.CallbackProperty(() => this.radarMaterial(targetId, layer), false)
+        ),
+        outline: layer === 'base' || layer === 'notch',
+        outlineColor: new Cesium.CallbackProperty(() => this.radarOutlineColor(targetId, layer), false),
+        outlineWidth: layer === 'base' || layer === 'notch' ? 1.5 : 0
+      }
+    })
+  }
+
+  private createRadarProjection(id: string, targetId: string) {
+    return this.viewer!.entities.add({
+      id,
+      show: false,
+      position: new Cesium.CallbackPositionProperty(() => this.targetGroundPosition(targetId), false),
+      ellipse: {
+        semiMajorAxis: new Cesium.CallbackProperty(() => this.animatedRadarRangeMeters(targetId), false),
+        semiMinorAxis: new Cesium.CallbackProperty(() => this.animatedRadarRangeMeters(targetId), false),
+        rotation: new Cesium.CallbackProperty(() => {
+          const target = this.latestTargets.get(targetId)
+          return Cesium.Math.toRadians(target?.headingDeg || 0)
+        }, false),
+        material: new Cesium.StripeMaterialProperty({
+          evenColor: new Cesium.CallbackProperty(() => this.radarColor(targetId).withAlpha(0.16), false),
+          oddColor: Cesium.Color.TRANSPARENT,
+          repeat: 18,
+          orientation: Cesium.StripeOrientation.HORIZONTAL
+        }),
+        outline: true,
+        outlineColor: new Cesium.CallbackProperty(() => this.radarColor(targetId).withAlpha(0.46), false),
+        height: 0
+      }
+    })
+  }
+
+  private createRadarSweepArc(id: string, targetId: string) {
+    return this.viewer!.entities.add({
+      id,
+      show: false,
+      polyline: {
+        positions: new Cesium.CallbackProperty(() => this.radarSweepArcPositions(targetId), false),
+        width: 2.2,
+        material: new Cesium.PolylineGlowMaterialProperty({
+          glowPower: 0.35,
+          color: new Cesium.CallbackProperty(() => this.radarColor(targetId).withAlpha(0.92), false)
+        }),
+        clampToGround: false
+      }
+    })
+  }
+
+  private targetPosition(targetId: string) {
+    const target = this.latestTargets.get(targetId)
+    return target
+      ? Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, target.altitude)
+      : Cesium.Cartesian3.ZERO
+  }
+
+  private targetGroundPosition(targetId: string) {
+    const target = this.latestTargets.get(targetId)
+    return target
+      ? Cesium.Cartesian3.fromDegrees(target.longitude, target.latitude, 0)
+      : Cesium.Cartesian3.ZERO
+  }
+
+  private radarMount(target: SituationTarget) {
+    const coverage = target.sensorCoverage!
+    if (coverage.mountType) return coverage.mountType
+    if (coverage.scanAngleDeg >= 340) return 'omni' as const
+    return coverage.scanAngleDeg <= 40 ? 'firecontrol' as const : 'sector' as const
+  }
+
+  private radarSpanDeg(target: SituationTarget) {
+    const mount = this.radarMount(target)
+    if (mount === 'omni') return 360
+    if (mount === 'firecontrol') return 16
+    return Math.max(16, Math.min(180, target.sensorCoverage!.scanAngleDeg))
+  }
+
+  private radarElevationDeg(target: SituationTarget) {
+    const configured = target.sensorCoverage!.elevationDeg
+    if (configured != null) return configured
+    const mount = this.radarMount(target)
+    return mount === 'omni' ? 95 : mount === 'firecontrol' ? 12 : 35
+  }
+
+  private radarOrientation(targetId: string) {
+    const target = this.latestTargets.get(targetId)
+    if (!target?.sensorCoverage) return Cesium.Quaternion.IDENTITY
+    const position = this.targetPosition(targetId)
+    if (this.radarMount(target) === 'omni') {
+      return Cesium.Transforms.headingPitchRollQuaternion(
+        position,
+        new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(target.headingDeg), 0, 0)
+      )
+    }
+    return Cesium.Transforms.headingPitchRollQuaternion(
+      position,
+      new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(target.headingDeg), Cesium.Math.toRadians(-90), 0)
+    )
+  }
+
+  private activeJammingProfile(target: SituationTarget) {
+    const jamming = target.sensorCoverage?.jamming
+    if (!jamming || !useSituationStore().isJammingActiveForTarget(target.id)) return null
+    const jammer = jamming.jammerTargetIds
+      .map((id) => this.latestTargets.get(id))
+      .find((item): item is SituationTarget => !!item)
+    if (!jammer) return null
+
+    const distanceKm = Cesium.Cartesian3.distance(this.targetPosition(target.id), this.targetPosition(jammer.id)) / 1000
+    // 进入有效探测距离后视为烧穿恢复，覆盖范围与缺口同步还原。
+    if (distanceKm < jamming.effectiveRangeKm) return null
+    return { jamming, jammer }
+  }
+
+  private syncRadarRangeTransition(target: SituationTarget) {
+    const coverage = target.sensorCoverage
+    if (!coverage) return
+    const jamming = this.activeJammingProfile(target)?.jamming
+    const targetRange = (jamming ? jamming.effectiveRangeKm : coverage.radarRangeKm) * 1000
+    const current = this.radarRangeTransitions.get(target.id)
+    if (!current) {
+      this.radarRangeTransitions.set(target.id, { from: targetRange, to: targetRange, startedAt: performance.now() })
+      return
+    }
+    if (Math.abs(current.to - targetRange) > 0.5) {
+      const progress = Math.min(1, (performance.now() - current.startedAt) / 400)
+      const from = current.from + (current.to - current.from) * progress
+      this.radarRangeTransitions.set(target.id, { from, to: targetRange, startedAt: performance.now() })
+    }
+  }
+
+  private animatedRadarRangeMeters(targetId: string) {
+    const transition = this.radarRangeTransitions.get(targetId)
+    if (!transition) return 0
+    const progress = Math.min(1, (performance.now() - transition.startedAt) / 400)
+    return transition.from + (transition.to - transition.from) * progress
+  }
+
+  private radarRadii(targetId: string) {
+    const target = this.latestTargets.get(targetId)
+    if (!target?.sensorCoverage) return Cesium.Cartesian3.ZERO
+    const range = this.animatedRadarRangeMeters(targetId)
+    const mount = this.radarMount(target)
+    if (mount === 'sector') {
+      return new Cesium.Cartesian3(range, range, range * Math.sin(Cesium.Math.toRadians(this.radarElevationDeg(target))))
+    }
+    return new Cesium.Cartesian3(range, range, range)
+  }
+
+  private radarMaximumCone(targetId: string) {
+    const target = this.latestTargets.get(targetId)
+    return target?.sensorCoverage ? Cesium.Math.toRadians(this.radarElevationDeg(target)) : 0
+  }
+
+  private radarColor(targetId: string) {
+    const color = this.latestTargets.get(targetId)?.sensorCoverage?.coneColor || '#00d2ff'
+    return Cesium.Color.fromCssColorString(color)
+  }
+
+  private radarMaterial(targetId: string, layer: 'base' | 'notch' | 'sweep' | 'nearTrail' | 'farTrail') {
+    const target = this.latestTargets.get(targetId)
+    const profile = target ? this.activeJammingProfile(target) : null
+    const mount = target ? this.radarMount(target) : 'sector'
+    const pulse = mount === 'firecontrol' && layer !== 'base' && layer !== 'notch'
+      ? 0.06 + 0.08 * ((Math.sin(this.radarAnimationSeconds * Math.PI * 2) + 1) / 2)
+      : 0
+    const flicker = profile?.jamming.flicker
+      ? 0.06 + 0.10 * ((Math.sin(this.radarAnimationSeconds * Math.PI * 4) + 1) / 2)
+      : 0.11
+    const alphaByLayer = {
+      base: flicker,
+      notch: flicker,
+      sweep: 0.28 + pulse,
+      nearTrail: 0.12,
+      farTrail: 0.05
+    }[layer]
+    return this.radarColor(targetId).withAlpha(alphaByLayer)
+  }
+
+  private radarOutlineColor(targetId: string, layer: 'base' | 'notch' | 'sweep' | 'nearTrail' | 'farTrail') {
+    return this.radarColor(targetId).withAlpha(layer === 'base' || layer === 'notch' ? 0.72 : 0)
+  }
+
+  private radarNotch(targetId: string) {
+    const target = this.latestTargets.get(targetId)
+    if (!target?.sensorCoverage) return null
+    const profile = this.activeJammingProfile(target)
+    if (!profile) return null
+
+    const span = this.radarSpanDeg(target)
+    const mount = this.radarMount(target)
+    const bearing = this.bearingDegrees(target, profile.jammer)
+    const originHeading = mount === 'omni' ? 0 : target.headingDeg - span / 2
+    const relative = this.normalizeDegrees(bearing - originHeading)
+    if (mount !== 'omni' && relative > span) return null
+    const half = (profile.jamming.notchSpanDeg ?? 24) / 2
+    return {
+      start: Math.max(0, relative - half),
+      end: Math.min(span, relative + half)
+    }
+  }
+
+  private radarClockWindow(targetId: string, layer: 'base' | 'notch' | 'sweep' | 'nearTrail' | 'farTrail'): [number, number] {
+    const target = this.latestTargets.get(targetId)
+    if (!target?.sensorCoverage) return [0, 0]
+    const span = this.radarSpanDeg(target)
+    const notch = this.radarNotch(targetId)
+    if (layer === 'base') {
+      return [0, Cesium.Math.toRadians(notch ? notch.start : span)]
+    }
+    if (layer === 'notch') {
+      return notch ? [Cesium.Math.toRadians(notch.end), Cesium.Math.toRadians(span)] : [0, 0]
+    }
+    return this.scanClockWindow(target, layer)
+  }
+
+  private scanClockWindow(target: SituationTarget, layer: 'sweep' | 'nearTrail' | 'farTrail'): [number, number] {
+    const span = this.radarSpanDeg(target)
+    const width = layer === 'sweep' ? 8 : layer === 'nearTrail' ? 30 : 60
+    const period = Math.max(1, target.sensorCoverage?.scanPeriodSec ?? 4)
+    const seed = Array.from(target.id).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360
+    let sweepStart: number
+    if (this.radarMount(target) === 'firecontrol') {
+      sweepStart = Math.max(0, (span - 8) / 2)
+    } else if (this.radarMount(target) === 'omni') {
+      sweepStart = this.normalizeDegrees((this.radarAnimationSeconds / period) * 360 + seed)
+    } else {
+      const phase = ((this.radarAnimationSeconds / period) * Math.PI * 2 + Cesium.Math.toRadians(seed))
+      sweepStart = ((Math.sin(phase) + 1) / 2) * Math.max(0, span - 8)
+    }
+    const trailingStart = Math.max(0, sweepStart - width)
+    const trailingEnd = Math.min(span, sweepStart + (layer === 'sweep' ? 8 : 0))
+    return [Cesium.Math.toRadians(layer === 'sweep' ? sweepStart : trailingStart), Cesium.Math.toRadians(trailingEnd)]
+  }
+
+  private isClockWindowVisible(targetId: string, layer: 'base' | 'notch' | 'sweep' | 'nearTrail' | 'farTrail') {
+    const [start, end] = this.radarClockWindow(targetId, layer)
+    if (end - start < Cesium.Math.toRadians(0.5)) return false
+    if (layer === 'base' || layer === 'notch') return true
+    const notch = this.radarNotch(targetId)
+    if (!notch) return true
+    const startDeg = Cesium.Math.toDegrees(start)
+    const endDeg = Cesium.Math.toDegrees(end)
+    return endDeg <= notch.start || startDeg >= notch.end
+  }
+
+  private refreshRadarVisualVisibility(targetId: string) {
+    const target = this.latestTargets.get(targetId)
+    const set = this.radarVisualSets.get(targetId)
+    if (!target?.sensorCoverage || !set) return
+    this.syncRadarRangeTransition(target)
+    const visible = !!this.radarVisibility.get(targetId)
+    const scanning = visible && target.sensorCoverage.isScanning !== false
+    set.base.show = visible && this.isClockWindowVisible(targetId, 'base')
+    set.notch.show = visible && this.isClockWindowVisible(targetId, 'notch')
+    set.projection.show = visible
+    set.sweep.show = scanning && this.isClockWindowVisible(targetId, 'sweep')
+    set.nearTrail.show = scanning && this.isClockWindowVisible(targetId, 'nearTrail')
+    set.farTrail.show = scanning && this.isClockWindowVisible(targetId, 'farTrail')
+    set.sweepArc.show = scanning && this.isClockWindowVisible(targetId, 'sweep')
+  }
+
+  private radarSweepArcPositions(targetId: string) {
+    const target = this.latestTargets.get(targetId)
+    if (!target?.sensorCoverage || !this.isClockWindowVisible(targetId, 'sweep')) return []
+    const [start, end] = this.radarClockWindow(targetId, 'sweep')
+    const startDeg = Cesium.Math.toDegrees(start)
+    const endDeg = Cesium.Math.toDegrees(end)
+    const mount = this.radarMount(target)
+    const originHeading = mount === 'omni' ? 0 : target.headingDeg - this.radarSpanDeg(target) / 2
+    const range = this.animatedRadarRangeMeters(targetId)
+    const points: Cesium.Cartesian3[] = []
+    for (let index = 0; index <= 12; index++) {
+      const ratio = index / 12
+      const bearing = originHeading + startDeg + (endDeg - startDeg) * ratio
+      points.push(this.destinationPosition(target, bearing, range, Math.max(1000, target.altitude + range * 0.08)))
+    }
+    return points
+  }
+
+  private renderJammingEffects(targets: SituationTarget[]) {
+    if (!this.viewer) return
+    this.latestTargets = new Map(targets.map((target) => [target.id, target]))
+    const situationStore = useSituationStore()
+    const sceneStore = useSceneStore()
+    const layerVisible = sceneStore.isWorkItemVisible('WORK-JAMMING-EFFECT')
+    const activeKeys = new Set<string>()
+    situationStore.activeJammingPairs.forEach((pair) => {
+      const jammer = this.latestTargets.get(pair.jammerTargetId)
+      const jammed = this.latestTargets.get(pair.jammedTargetId)
+      if (!jammer || !jammed) return
+      const key = `${pair.jammerTargetId}__${pair.jammedTargetId}`
+      activeKeys.add(key)
+      const set = this.ensureJammingVisualSet(key, pair.jammerTargetId, pair.jammedTargetId)
+      set.cone.show = layerVisible
+      set.beam.show = layerVisible
+      set.label.show = layerVisible
+    })
+    this.jammingVisualSets.forEach((set, key) => {
+      if (!activeKeys.has(key)) {
+        set.cone.show = false
+        set.beam.show = false
+        set.label.show = false
+      }
+    })
+  }
+
+  private ensureJammingVisualSet(key: string, jammerId: string, jammedId: string) {
+    const existing = this.jammingVisualSets.get(key)
+    if (existing || !this.viewer) return existing!
+    const red = Cesium.Color.fromCssColorString('#ff4d4f')
+    const set: JammingVisualSet = {
+      cone: this.viewer.entities.add({
+        id: `JAM_CONE_${key}`,
+        show: false,
+        position: new Cesium.CallbackPositionProperty(() => this.targetPosition(jammerId), false),
+        orientation: new Cesium.CallbackProperty(() => this.orientationBetween(jammerId, jammedId), false),
         ellipsoid: {
-          radii: new Cesium.Cartesian3(radiusMeters, radiusMeters, Math.min(radiusMeters, 25000)),
-          maximumCone: Cesium.Math.toRadians(target.sensorCoverage.scanAngleDeg / 2),
-          material: color,
+          radii: new Cesium.CallbackProperty(() => {
+            const jammer = this.latestTargets.get(jammerId)
+            const jammed = this.latestTargets.get(jammedId)
+            if (!jammer || !jammed) return Cesium.Cartesian3.ZERO
+            const distance = Cesium.Cartesian3.distance(this.targetPosition(jammerId), this.targetPosition(jammedId))
+            const radius = Math.max(40000, Math.min(180000, distance * 1.08))
+            return new Cesium.Cartesian3(radius, radius, radius)
+          }, false),
+          minimumCone: 0,
+          maximumCone: Cesium.Math.toRadians(14),
+          material: new Cesium.ColorMaterialProperty(
+            new Cesium.CallbackProperty(
+              () => red.withAlpha(0.08 + 0.08 * ((Math.sin(this.radarAnimationSeconds * Math.PI * 3) + 1) / 2)),
+              false
+            )
+          ),
           outline: true,
-          outlineColor: outlineColor,
-          outlineWidth: 1.5
+          outlineColor: red.withAlpha(0.8),
+          outlineWidth: 1.6
+        }
+      }),
+      beam: this.viewer.entities.add({
+        id: `JAM_BEAM_${key}`,
+        show: false,
+        polyline: {
+          positions: new Cesium.CallbackProperty(
+            () => [this.targetPosition(jammerId), this.targetPosition(jammedId)],
+            false
+          ),
+          width: 3,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: new Cesium.CallbackProperty(
+              () => red.withAlpha(0.65 + 0.3 * ((Math.sin(this.radarAnimationSeconds * Math.PI * 4) + 1) / 2)),
+              false
+            ),
+            gapColor: Cesium.Color.TRANSPARENT,
+            dashLength: 18
+          })
+        }
+      }),
+      label: this.viewer.entities.add({
+        id: `JAM_LABEL_${key}`,
+        show: false,
+        position: new Cesium.CallbackPositionProperty(() => {
+          return Cesium.Cartesian3.midpoint(this.targetPosition(jammerId), this.targetPosition(jammedId), new Cesium.Cartesian3())
+        }, false),
+        label: {
+          text: '有源干扰',
+          font: 'bold 12px sans-serif',
+          fillColor: red,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 3,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          pixelOffset: new Cesium.Cartesian2(0, -12),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
         }
       })
-      this.radarConeEntities.set(coneId, coneEntity)
-    } else {
-      coneEntity.show = isVisible
-      coneEntity.position = new Cesium.ConstantPositionProperty(center)
     }
+    this.jammingVisualSets.set(key, set)
+    return set
+  }
+
+  private refreshJammingVisualVisibility() {
+    if (!this.viewer) return
+    const sceneStore = useSceneStore()
+    const activeKeys = new Set(
+      useSituationStore().activeJammingPairs.map((pair) => `${pair.jammerTargetId}__${pair.jammedTargetId}`)
+    )
+    const layerVisible = sceneStore.isWorkItemVisible('WORK-JAMMING-EFFECT')
+    this.jammingVisualSets.forEach((set, key) => {
+      const visible = layerVisible && activeKeys.has(key)
+      set.cone.show = visible
+      set.beam.show = visible
+      set.label.show = visible
+    })
+  }
+
+  private orientationBetween(sourceId: string, targetId: string) {
+    const source = this.latestTargets.get(sourceId)
+    const target = this.latestTargets.get(targetId)
+    if (!source || !target) return Cesium.Quaternion.IDENTITY
+    return Cesium.Transforms.headingPitchRollQuaternion(
+      this.targetPosition(sourceId),
+      new Cesium.HeadingPitchRoll(Cesium.Math.toRadians(this.bearingDegrees(source, target)), Cesium.Math.toRadians(-90), 0)
+    )
+  }
+
+  private bearingDegrees(source: SituationTarget, target: SituationTarget) {
+    const lat1 = Cesium.Math.toRadians(source.latitude)
+    const lat2 = Cesium.Math.toRadians(target.latitude)
+    const deltaLon = Cesium.Math.toRadians(target.longitude - source.longitude)
+    const y = Math.sin(deltaLon) * Math.cos(lat2)
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLon)
+    return this.normalizeDegrees(Cesium.Math.toDegrees(Math.atan2(y, x)))
+  }
+
+  private destinationPosition(target: SituationTarget, bearingDeg: number, distanceMeters: number, height: number) {
+    const radius = 6378137
+    const angularDistance = distanceMeters / radius
+    const bearing = Cesium.Math.toRadians(bearingDeg)
+    const lat1 = Cesium.Math.toRadians(target.latitude)
+    const lon1 = Cesium.Math.toRadians(target.longitude)
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(angularDistance) + Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearing))
+    const lon2 = lon1 + Math.atan2(
+      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(lat1),
+      Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2)
+    )
+    return Cesium.Cartesian3.fromRadians(lon2, lat2, height)
+  }
+
+  private normalizeDegrees(value: number) {
+    return ((value % 360) + 360) % 360
   }
 
   private renderTargetTrack(target: SituationTarget, isVisible = true) {
@@ -1256,6 +1741,22 @@ export class CesiumController {
         this.highlightEntities.delete(id)
       }
     })
+    this.radarVisualSets.forEach((set, targetId) => {
+      if (!alive.has(targetId)) {
+        Object.values(set).forEach((entity) => this.viewer!.entities.remove(entity))
+        this.radarVisualSets.delete(targetId)
+        this.radarConeEntities.delete(`RADAR_CONE_${targetId}`)
+        this.radarVisibility.delete(targetId)
+        this.radarRangeTransitions.delete(targetId)
+      }
+    })
+    this.jammingVisualSets.forEach((set, key) => {
+      const [jammerId, jammedId] = key.split('__')
+      if (!alive.has(jammerId) || !alive.has(jammedId)) {
+        Object.values(set).forEach((entity) => this.viewer!.entities.remove(entity))
+        this.jammingVisualSets.delete(key)
+      }
+    })
   }
 
   private syncHighlightRing(target: SituationTarget, visible: boolean) {
@@ -1640,6 +2141,8 @@ export class CesiumController {
 
   public destroy() {
     this.clearActiveHandler()
+    this.removeRadarClockListener?.()
+    this.removeRadarClockListener = null
     if (this.viewer && !this.viewer.isDestroyed()) {
       this.viewer.destroy()
       this.viewer = null
@@ -1651,6 +2154,11 @@ export class CesiumController {
     this.regionEntities.clear()
     this.regionLabels.clear()
     this.radarConeEntities.clear()
+    this.radarVisualSets.clear()
+    this.jammingVisualSets.clear()
+    this.radarVisibility.clear()
+    this.radarRangeTransitions.clear()
+    this.latestTargets.clear()
     this.futureTrackEntities.clear()
     this.futureBranchEntities.clear()
     this.temporalSliceEntities.clear()

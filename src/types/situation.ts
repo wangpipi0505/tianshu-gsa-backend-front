@@ -50,6 +50,34 @@ export interface RadarFeatures {
   modulationType?: string
 }
 
+/** 雷达安装与扫描形态：全向穹顶、定向警戒扇面、火控窄锥 */
+export type RadarMountType = 'omni' | 'sector' | 'firecontrol'
+
+/** 电子对抗干扰状态（由受扰雷达保存，用于态势推演表达） */
+export interface JammingState {
+  isJammed: boolean
+  jammerTargetIds: string[]
+  /** 干扰条件下的有效探测距离 */
+  effectiveRangeKm: number
+  /** 缺口初始方位；渲染时会按施扰方实时位置更新 */
+  notchAzimuthDeg?: number
+  /** 受扰方位缺口张角 */
+  notchSpanDeg?: number
+  /** 覆盖体亮度闪烁开关 */
+  flicker?: boolean
+  /** 干扰推演有效时段，采用与时间轴一致的时间格式 */
+  startTime?: string
+  endTime?: string
+}
+
+/** 激活的电子对抗关系，用于工具栏与图层状态管理 */
+export interface JammingPair {
+  jammedTargetId: string
+  jammerTargetId: string
+  startTime?: string
+  endTime?: string
+}
+
 /** 态势目标实体 (唯一事实) */
 export interface SituationTarget {
   id: string
@@ -92,6 +120,12 @@ export interface SituationTarget {
     scanAngleDeg: number
     coneColor: string
     isScanning?: boolean
+    /** 垂直覆盖半角；未配置时按安装形态取业务默认值 */
+    elevationDeg?: number
+    /** 扫描一周或一次往复扫描的周期，默认 4 秒 */
+    scanPeriodSec?: number
+    mountType?: RadarMountType
+    jamming?: JammingState
   }
 
   // 未来预测外推与时空切片联动扩展
