@@ -74,6 +74,7 @@ export interface ActionCard {
     | 'generate_briefing'
     | 'focus_mideast_convoy'
     | 'focus_mideast_all'
+    | 'focus_theater_situation'
     | 'clear_all_situations'
     | 'focus_warship'
     | 'focus_fighter'
@@ -89,12 +90,18 @@ export interface ActionCard {
     | 'compare_future_branches'
     | 'compare_temporal_slices'
     | 'construct_target'
+    | 'open_candidate_review'
+    | 'publish_fusion_asset'
+    | 'apply_analysis_scope'
+    | 'open_analysis_publish'
   title: string
   description: string
   previewPayload: Record<string, any>
   executed: boolean
   reversible: boolean
   basisExplanation: string
+  /** 前端导航、弹窗或本地计算动作不依赖智能体服务端执行接口。 */
+  executionScope?: 'frontend' | 'data'
 }
 
 /** 智能体会话消息 */

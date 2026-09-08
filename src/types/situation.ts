@@ -6,6 +6,8 @@
 export type AffiliationType = 'friend' | 'foe' | 'neutral' | 'unknown'
 export type TargetDomainType = 'air' | 'sea' | 'ground' | 'space' | 'subsurface'
 export type RelationSemanticType = 'command' | 'threat' | 'coordination' | 'escort' | 'formation' | 'strike' | 'scan'
+/** 态势区域标识；数据源可直接提供，缺失时由产品版本等业务字段推断。 */
+export type SituationTheater = 'taiwan' | 'south_china' | 'mideast'
 
 /** 时空航迹采样点 */
 export interface TrackPoint {
@@ -138,6 +140,7 @@ export interface SituationTarget {
   evidenceIds: string[]
   createdProductVersion: string
   classification?: 'internal' | 'confidential' | 'secret' | 'top_secret'
+  theater?: SituationTheater
 }
 
 /** 未来多分支战术推演假说 */
@@ -196,6 +199,7 @@ export interface SituationRegion {
   color: string
   opacity: number
   description: string
+  theater?: SituationTheater
   /** 专题研判成果扩展属性 (威胁等级、研判结论等) */
   thematicAttributes?: Record<string, unknown>
 }

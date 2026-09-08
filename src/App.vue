@@ -8,7 +8,7 @@
       <router-view ref="viewRef" />
     </main>
 
-    <!-- 智能研判助手（全局浮层，所有页面可用） -->
+    <!-- 智能业务助手（全局浮层，所有页面可用） -->
     <AgentChatPanel />
   </div>
 </template>

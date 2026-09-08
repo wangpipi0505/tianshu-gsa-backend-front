@@ -365,7 +365,7 @@ function focusTarget() {
 function onAskAgent() {
   if (!target.value) return
   emit('ask-agent', `深度研判目标 ${target.value.codeName} 的目标特性、活动规律与威胁程度`)
-  ElMessage.success('研判指令已发送至智能研判助手')
+  ElMessage.success('研判指令已发送至智能业务助手')
 }
 
 defineExpose({

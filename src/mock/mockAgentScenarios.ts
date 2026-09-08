@@ -139,7 +139,7 @@ export const PAGE_TEMPLATE_PRIORITY: Record<string, string[]> = {
 /** 路由 → 智能助手开场白（随页面业务口径切换） */
 export const PAGE_GREETINGS: Record<string, string> = {
   '/workbench':
-    '您好！我是**智能态势研判助手**，已实时接入全球三维数字地球与全量态势要素库（覆盖东南海峡与中东战区）。\n\n支持通过自然语言进行**战区研判、战备检索、雷达投射、战术关系标绘、场景构建与推演上图**。您可以直接在下方输入研判指令，或通过上方模板快速发起问答。',
+    '您好！我是**智能业务助手**，已实时接入全球三维数字地球与全量态势要素库（覆盖东南海峡与中东战区）。\n\n支持通过自然语言进行**战区研判、战备检索、雷达投射、战术关系标绘、场景构建与推演上图**。您可以直接在下方输入研判指令，或通过上方模板快速发起问答。',
   '/fusion':
     '您好！当前处于**数据融合工作台**，研判助手已接入融合任务队列、数据源资产与候选关联确认列表。\n\n支持通过自然语言进行**融合任务调度、数据源注册、候选关联确认、异常策略处置与数据产品版本发布**，也可以直接发起态势场景构建。输入研判指令或点击上方模板即可开始。',
   '/analytics':
@@ -181,7 +181,7 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
     {
       id: 'MSG-INIT-01',
       sender: 'agent',
-      content: '您好！我是**智能态势研判助手**，已实时接入全球三维数字地球与全量态势要素库（覆盖东南海峡与中东战区）。\n\n支持通过自然语言进行**战区研判、战备检索、雷达投射、战术关系标绘与推演上图**。您可以直接在下方输入研判指令，或通过上方模板快速发起问答。',
+      content: '您好！我是**智能业务助手**，已实时接入全球三维数字地球与全量态势要素库（覆盖东南海峡与中东战区）。\n\n支持通过自然语言进行**战区研判、战备检索、雷达投射、战术关系标绘与推演上图**。您可以直接在下方输入研判指令，或通过上方模板快速发起问答。',
       timestamp: '2026-08-25 15:20:00'
     }
   ],
@@ -277,13 +277,94 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
       actionCards: [
         {
           id: 'ACT-ME-ALL-01',
-          actionType: 'focus_mideast_all',
+          actionType: 'focus_theater_situation',
           title: '中东波斯湾与霍尔木兹海峡全域态势上图',
           description: '相机以正俯瞰视角 (1150km) 切换至中东战区，呈现焦作舰护航、突防机群与要塞防空全貌',
-          previewPayload: { theater: 'mideast', center: [55.5, 26.0] },
+          previewPayload: { theater: 'mideast' },
           executed: false,
           reversible: true,
-          basisExplanation: '基于中东波斯湾全量态势要素与战区管制定界'
+          basisExplanation: '基于当前数据源中的中东区域态势要素与战区管制定界',
+          executionScope: 'frontend'
+        }
+      ]
+    }
+  ],
+
+  // 场景：南海与菲律宾方向当前全量态势
+  scenario_scs_situation: [
+    {
+      id: 'MSG-USER-SCS-SITUATION',
+      sender: 'user',
+      content: '查看南海态势。',
+      timestamp: ''
+    },
+    {
+      id: 'MSG-AGENT-SCS-SITUATION',
+      sender: 'agent',
+      content: '已识别**南海与菲律宾方向态势**请求。点击下方【加载当前区域全量态势】后，系统将从当前数据源读取该方向的全部目标、关联关系、空间区域和关联事件，并仅在三维地球中显示这些要素；其他区域态势将隐藏。',
+      timestamp: '',
+      intentUnderstanding: {
+        rawPrompt: '查看南海态势。',
+        intentCategory: 'thematic_analysis',
+        intentTitle: '南海与菲律宾方向当前全量态势加载',
+        targetScope: ['当前数据源中属于南海与菲律宾方向的态势目标'],
+        spatialScope: '南海与菲律宾方向',
+        timeScope: '当前态势时点',
+        actionSequence: ['读取当前区域全量态势数据', '过滤其他区域要素', '加载目标、关系、区域与事件并聚焦视角'],
+        confidence: 0.98,
+        isConfirmed: true
+      },
+      actionCards: [
+        {
+          id: 'ACT-SCS-SITUATION',
+          actionType: 'focus_theater_situation',
+          title: '南海与菲律宾方向全量态势上图',
+          description: '仅显示当前数据源中南海与菲律宾方向的目标、关系、区域和事件。',
+          previewPayload: { theater: 'south_china' },
+          executed: false,
+          reversible: true,
+          basisExplanation: '按当前数据源中的区域归属加载南海与菲律宾方向态势',
+          executionScope: 'frontend'
+        }
+      ]
+    }
+  ],
+
+  // 场景：台海方向当前全量态势
+  scenario_taiwan_situation: [
+    {
+      id: 'MSG-USER-TAIWAN-SITUATION',
+      sender: 'user',
+      content: '查看台海态势。',
+      timestamp: ''
+    },
+    {
+      id: 'MSG-AGENT-TAIWAN-SITUATION',
+      sender: 'agent',
+      content: '已识别**台海方向态势**请求。点击下方【加载当前区域全量态势】后，系统将从当前数据源读取台海方向的全部目标、关联关系、空间区域和关联事件，并仅在三维地球中显示这些要素；其他区域态势将隐藏。',
+      timestamp: '',
+      intentUnderstanding: {
+        rawPrompt: '查看台海态势。',
+        intentCategory: 'thematic_analysis',
+        intentTitle: '台海方向当前全量态势加载',
+        targetScope: ['当前数据源中属于台海方向的态势目标'],
+        spatialScope: '台海方向',
+        timeScope: '当前态势时点',
+        actionSequence: ['读取当前区域全量态势数据', '过滤其他区域要素', '加载目标、关系、区域与事件并聚焦视角'],
+        confidence: 0.98,
+        isConfirmed: true
+      },
+      actionCards: [
+        {
+          id: 'ACT-TAIWAN-SITUATION',
+          actionType: 'focus_theater_situation',
+          title: '台海方向全量态势上图',
+          description: '仅显示当前数据源中台海方向的目标、关系、区域和事件。',
+          previewPayload: { theater: 'taiwan' },
+          executed: false,
+          reversible: true,
+          basisExplanation: '按当前数据源中的区域归属加载台海方向态势',
+          executionScope: 'frontend'
         }
       ]
     }
@@ -953,7 +1034,7 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
 - **构建对象一**：🚢 我方南海维权巡逻编队（116.2°E, 14.8°N，航向 160°）；
 - **构建对象二**：🚢 外军导弹驱逐舰（118.6°E, 13.5°N，向西逼近）；
 
-两张构建草稿卡已就绪，确认后目标将写入**场景工作内容层**并上图，可与既有态势同场研判。`,
+两张构建草稿卡已就绪。确认后，这两个目标将写入**场景工作内容层**；同时加载南海与菲律宾方向当前可用的目标、关系、区域和事件，仅显示该方向态势。`,
       timestamp: '2026-08-25 15:35:18',
       intentUnderstanding: {
         rawPrompt: '构建我国南海与菲律宾方向的态势场景：我方维权巡逻编队与外军舰机对峙。',
@@ -962,7 +1043,7 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
         targetScope: ['我方南海维权巡逻编队', '外军导弹驱逐舰'],
         spatialScope: '南海海域 / 菲律宾以西',
         timeScope: '实时构建',
-        actionSequence: ['解析构建意图与对象', '生成两张构建草稿卡', '确认后写入场景工作内容层并上图'],
+        actionSequence: ['解析构建意图与对象', '生成两张构建草稿卡', '加载南海与菲律宾方向全量态势并上图'],
         confidence: 0.97,
         isConfirmed: true
       },
@@ -974,12 +1055,13 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
           id: 'ACT-SCS-ALL',
           actionType: 'construct_target',
           title: '🌊 构建南海对峙态势场景（双目标）',
-          description: '一次性上图构建南海对峙场景：我方巡逻编队与外军驱逐舰双目标同时写入工作内容层',
+          description: '我方巡逻编队与外军驱逐舰双目标写入工作内容层，同时仅加载南海与菲律宾方向的全量态势要素',
           previewPayload: {
             targets: [
               { name: '我方南海维权巡逻编队', objectType: 'warship', affiliation: 'friend', longitude: 116.2, latitude: 14.8, altitude: 0, speedKnots: 18 },
               { name: '外军导弹驱逐舰', objectType: 'warship', affiliation: 'foe', longitude: 118.6, latitude: 13.5, altitude: 0, speedKnots: 22 }
             ],
+            theater: 'south_china',
             remark: '南海对峙态势场景（智能助手构建）'
           },
           executed: false,
@@ -990,36 +1072,30 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
     }
   ],
 
-  // 场景 12：未识别意图兜底 (能力清单引导，避免答非所问)
-  // 场景：数据融合与资产发布（融合工作台页面口径）
-  scenario_fusion_publish: [
+  // 候选关联的回复内容由当前 FusionJob 实时生成；此键用于 Mock 指令路由标识。
+  scenario_fusion_candidate_review: [],
+
+  scenario_fusion_dataset_registry: [
     {
-      id: 'MSG-USER-FUSION',
+      id: 'MSG-USER-FUSION-DATASET',
       sender: 'user',
-      content: '发布新资产版本，生成数据产品包装。',
+      content: '接收新数据集：南海海域高分光学与雷达观测数据集。',
       timestamp: ''
     },
     {
-      id: 'MSG-AGENT-FUSION',
+      id: 'MSG-AGENT-FUSION-DATASET',
       sender: 'agent',
-      content: `已核验当前融合任务的发布前置条件，满足发布要求：
-
-- **输入完备性**：任务下全部已登记数据源均完成接入与解析，无待补录字段；
-- **候选关联**：候选关联确认队列已全部完成研判，无挂起记录；
-- **映射规则**：字段映射规则校验通过，无未映射的必选字段；
-- **异常策略**：当前配置的异常处理策略将在发布时随版本固化存档。
-
-点击确认后，系统将执行：**生成资产版本号 → 固化数据产品包装（专题包 + 事实层快照 + 版本变更日志）→ 发布并写入版本历史**。请在融合工作台右侧【资产发布】面板完成最终确认，发布记录可在版本历史中回溯与对比。`,
+      content: '当前处于**数据融合工作台**。请在左侧【数据集登记】区域选择数据类型、填写数据源说明并完成登记；登记后的数据集会进入当前融合工作的选配范围。',
       timestamp: '',
       intentUnderstanding: {
-        rawPrompt: '发布新资产版本，生成数据产品包装。',
+        rawPrompt: '接收新数据集：南海海域高分光学与雷达观测数据集。',
         intentCategory: 'data_fusion',
-        intentTitle: '融合任务资产版本发布与数据产品包装',
-        targetScope: ['当前融合任务', '已登记数据源资产'],
-        spatialScope: '不涉及空间范围',
-        timeScope: '当前任务周期',
-        actionSequence: ['校验任务发布前置条件', '生成资产版本号与产品包装', '发布并写入版本历史'],
-        confidence: 0.95,
+        intentTitle: '登记数据源并纳入融合工作',
+        targetScope: ['待登记数据集'],
+        spatialScope: '由数据集登记信息确定',
+        timeScope: '由数据集时间范围确定',
+        actionSequence: ['填写数据集登记信息', '完成数据源登记', '在融合工作中选配已登记数据集'],
+        confidence: 0.94,
         isConfirmed: true
       }
     }
@@ -1036,13 +1112,13 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
     {
       id: 'MSG-AGENT-ANALYTICS',
       sender: 'agent',
-      content: `已切换统计口径为**仅真实态势**，语义如下：
+      content: `已识别统计口径为**仅真实态势**，应用后将按以下范围重新计算：
 
 - **参与统计对象**：仅纳入经多源融合确认进入事实层的目标，假设性工作内容与未确认标绘不参与统计；
 - **聚合方式**：沿用当前设置的时空聚合口径（统一对象 / 来源记录），空间上按所选网格或行政区划归并；
-- **输出内容**：目标数量分布、类型构成、时空密度统计与趋势对比将即时重算，统计图表与地图着色同步刷新。
+- **输出内容**：目标数量分布、类型构成、时空密度统计与趋势对比将重新计算，统计图表与地图着色同步刷新。
 
-如需将本次口径与分析配置固化为可复用模板，或将当前结果沉淀为专题研判成果，可继续下达相应指令。`,
+请点击下方【应用统计口径并重新计算】执行本次统计；计算完成后，可继续选择【打开专题成果发布】沉淀当前结果。`,
       timestamp: '',
       intentUnderstanding: {
         rawPrompt: '切换到"仅真实态势"口径进行统计分析。',
@@ -1054,7 +1130,31 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
         actionSequence: ['解析统计口径', '重算统计聚合结果', '刷新图表与地图着色'],
         confidence: 0.96,
         isConfirmed: true
-      }
+      },
+      actionCards: [
+        {
+          id: 'ACT-ANALYTICS-FACT-ONLY',
+          actionType: 'apply_analysis_scope',
+          title: '应用仅真实态势口径并重新计算',
+          description: '仅纳入已进入事实层的目标，重新计算当前统计图表和时空密度结果。',
+          previewPayload: { sourceScope: 'fact_only' },
+          executed: false,
+          reversible: false,
+          basisExplanation: '当前统计分析指令指定“仅真实态势”口径',
+          executionScope: 'frontend'
+        },
+        {
+          id: 'ACT-ANALYTICS-PUBLISH',
+          actionType: 'open_analysis_publish',
+          title: '打开专题成果发布',
+          description: '在统计计算完成后，填写成果名称与结论并发布为专题研判成果。',
+          previewPayload: {},
+          executed: false,
+          reversible: false,
+          basisExplanation: '统计结果可沉淀为专题研判成果',
+          executionScope: 'frontend'
+        }
+      ]
     }
   ],
 
@@ -1101,7 +1201,7 @@ export const MOCK_AGENT_SCENARIOS: Record<string, ChatMessage[]> = {
     {
       id: 'MSG-AGENT-FALLBACK',
       sender: 'agent',
-      content: `暂未能精确匹配该指令对应的研判场景。当前智能研判助手支持以下几类能力：
+      content: `暂未能精确匹配该指令对应的研判场景。当前智能业务助手支持以下几类能力：
 
 - **重点实体检索**：如"我想看一下我方舰艇的当前信息和状态"、"查看敌方重点突防战机"；
 - **三态切片与历史复盘**：如"对比历史、当前与未来三态时空切片"、"复盘 VIPER-01 的历史航迹"；

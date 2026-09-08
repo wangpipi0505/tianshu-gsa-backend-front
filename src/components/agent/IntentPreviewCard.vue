@@ -27,13 +27,13 @@
           <li v-for="(act, idx) in intent.actionSequence" :key="idx">{{ act }}</li>
         </ol>
       </div>
-      <el-button size="small" type="primary" plain @click="reexecute">按修正意图重新执行</el-button>
+      <el-button size="small" type="primary" plain @click="reexecute">{{ intentActionLabel }}</el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import type { IntentUnderstanding } from '@/types/agent'
 import { useAgentStore } from '@/stores/agentStore'
 import { Operation } from '@element-plus/icons-vue'
@@ -48,6 +48,36 @@ const draft = reactive({
   targetScope: '',
   spatialScope: '',
   timeScope: ''
+})
+
+const intentActionLabel = computed(() => {
+  switch (props.intent?.intentCategory) {
+    case 'data_fusion':
+      return props.intent.rawPrompt.includes('候选') ? '按修正条件查看候选关联' : '按修正条件核验发布事项'
+    case 'do_analysis':
+      return '按修正统计条件重新计算'
+    case 'build_scene':
+      return '按修正构建条件生成草稿'
+    case 'thematic_analysis':
+      return '按修正区域态势条件重新加载'
+    case 'do_simulation':
+    case 'simulation_deduction':
+      return '按修正推演条件重新计算'
+    default:
+      return '按修正条件重新处理'
+  }
+})
+
+const intentPromptPrefix = computed(() => {
+  switch (props.intent?.intentCategory) {
+    case 'data_fusion': return '数据融合处理'
+    case 'do_analysis': return '统计分析'
+    case 'build_scene': return '态势场景构建'
+    case 'thematic_analysis': return '区域态势加载'
+    case 'do_simulation':
+    case 'simulation_deduction': return '态势推演'
+    default: return '业务处理'
+  }
 })
 
 watch(
@@ -66,9 +96,9 @@ function reexecute() {
   props.intent.targetScope = draft.targetScope.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
   props.intent.spatialScope = draft.spatialScope
   props.intent.timeScope = draft.timeScope
-  const prompt = `按修正意图重新执行：对象=${draft.targetScope}；空间=${draft.spatialScope}；时间=${draft.timeScope}`
+  const prompt = `${intentPromptPrefix.value}：${intentActionLabel.value}。对象=${draft.targetScope}；空间=${draft.spatialScope}；时间=${draft.timeScope}`
   agentStore.sendMessage(prompt)
-  ElMessage.success('已按修正意图重新执行，修正记录已随会话留痕')
+  ElMessage.success(`${intentActionLabel.value}指令已提交，修正内容已随会话留痕`)
 }
 </script>
 

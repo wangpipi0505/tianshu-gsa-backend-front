@@ -221,9 +221,13 @@ export const useFusionStore = defineStore('fusion', () => {
   }
 
   async function publishJob(jobId: string) {
+    const job = fusionJobs.value.find((item) => item.id === jobId)
+    if (!job) throw new Error('未找到待发布的融合工作')
+    const pendingCount = job.candidates.filter((candidate) => candidate.decision === 'unconfirmed' || candidate.decision === 'deferred').length
+    if (pendingCount) throw new Error(`仍有 ${pendingCount} 条候选关联待人工研判，暂不能发布`)
+
     if (USE_MOCK) {
       // 本地原型也要产生真实的版本留痕：新增资产版本与数据产品，而不是返回旧数据
-      const job = fusionJobs.value.find((j) => j.id === jobId)
       const situation = useSituationStore()
       const seq = assetVersions.value.length + 1
       const now = new Date()

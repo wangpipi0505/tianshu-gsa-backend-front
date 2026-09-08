@@ -125,8 +125,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { nextTick, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import StatisticalCharts from '@/components/analysis/StatisticalCharts.vue'
 import TrajectoryProfile from '@/components/analysis/TrajectoryProfile.vue'
 import AssociationGraph from '@/components/analysis/AssociationGraph.vue'
@@ -142,6 +142,7 @@ import { ElMessage } from 'element-plus'
 import { DocumentAdd, Aim, RefreshRight } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const situationStore = useSituationStore()
 const sceneStore = useSceneStore()
 const analysisStore = useAnalysisStore()
@@ -176,6 +177,17 @@ function goToWorkbenchWithFocus() {
 function openPublishModal() {
   publishModalRef.value?.open()
 }
+
+watch(
+  () => route.query.assistantAction,
+  async (assistantAction) => {
+    if (assistantAction !== 'publish-thematic') return
+    await nextTick()
+    openPublishModal()
+    await router.replace({ path: '/analytics' })
+  },
+  { immediate: true }
+)
 
 /**
  * 确认发布并同步上图：

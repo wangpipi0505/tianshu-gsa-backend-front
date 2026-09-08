@@ -5,14 +5,14 @@
       v-if="!agentStore.isOpen"
       class="agent-floating-tab"
       @click="agentStore.openAgent()"
-      title="展开智能态势研判助手"
+      title="展开智能业务助手"
     >
       <div class="tab-top-indicator">
         <div class="tab-pulse-dot"></div>
         <el-icon class="tab-icon"><ChatDotRound /></el-icon>
       </div>
       <div class="tab-divider"></div>
-      <span class="tab-text">智能研判助手</span>
+      <span class="tab-text">智能业务助手</span>
       <div class="tab-arrow-box">
         <el-icon class="tab-arrow"><DArrowLeft /></el-icon>
       </div>
@@ -27,7 +27,7 @@
       <div class="tactical-panel-header">
         <div class="header-title-box">
           <el-icon class="text-cyan"><ChatDotRound /></el-icon>
-          <span>智能态势研判助手</span>
+          <span>智能业务助手</span>
         </div>
         <div class="header-actions-box">
           <el-button
@@ -92,7 +92,7 @@
             :class="['message-bubble-wrapper', msg.sender]"
           >
             <div class="sender-tag">
-              <span>{{ msg.sender === 'user' ? '指挥员' : '智能研判助手' }}</span>
+              <span>{{ msg.sender === 'user' ? '指挥员' : '智能业务助手' }}</span>
               <span class="msg-time">{{ msg.timestamp }}</span>
             </div>
 

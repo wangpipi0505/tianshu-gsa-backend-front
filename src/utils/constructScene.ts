@@ -4,7 +4,7 @@
 
 import { useSituationStore } from '@/stores/situationStore'
 import { useSceneStore } from '@/stores/sceneStore'
-import type { AffiliationType, SituationTarget } from '@/types/situation'
+import type { AffiliationType, SituationTarget, SituationTheater } from '@/types/situation'
 import type { WorkContent } from '@/types/scene'
 import { formatLocalDateTime } from '@/utils/timeRange'
 
@@ -17,6 +17,7 @@ export interface ConstructDraft {
   altitude: number
   speedKnots: number
   remark?: string
+  theater?: SituationTheater
   produceMode: 'manual' | 'agent'
   createdBy: string
 }
@@ -35,7 +36,8 @@ export function applyConstructDraft(draft: ConstructDraft, presetId?: string): C
   const sceneStore = useSceneStore()
   const targetId = presetId || createConstructId()
   const workContentId = `WORK-${targetId}`
-  const now = formatLocalDateTime(new Date())
+  // 构建结果属于当前态势时点；复用数据源提供的时钟，避免本机时间把 4D 时间轴拉出当前场景范围。
+  const now = situationStore.currentPlaybackTime || formatLocalDateTime(new Date())
 
   const target: SituationTarget = {
     id: targetId,
@@ -65,7 +67,8 @@ export function applyConstructDraft(draft: ConstructDraft, presetId?: string): C
     sourceDatasets: ['研判工作内容'],
     conflicts: [],
     evidenceIds: [],
-    createdProductVersion: sceneStore.activeScene.productVersionId
+    createdProductVersion: sceneStore.activeScene.productVersionId,
+    theater: draft.theater
   }
 
   const work: WorkContent = {

@@ -9,7 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "export-seed": "tsx scripts/export-seed.mts",
-    "check-seed-sync": "tsx scripts/check-seed-sync.mts"
+    "check-seed-sync": "tsx scripts/check-seed-sync.mts",
+    "check:assistant-business": "tsx scripts/check-assistant-business.mts",
+    "check:theater-situation": "tsx scripts/check-theater-situation.mts"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

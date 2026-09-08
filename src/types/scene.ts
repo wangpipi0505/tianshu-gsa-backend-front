@@ -27,6 +27,14 @@ export interface WorkContent {
   createdAt: string
 }
 
+/** 三维地球当前仅展示的区域态势范围。 */
+export interface SituationDisplayScope {
+  targetIds: string[]
+  relationIds: string[]
+  regionIds: string[]
+  eventIds: string[]
+}
+
 export type LayerNodeType = 'tier' | 'category' | 'entity' | 'feature' | 'region' | 'env' | 'work_item'
 
 /** 实体与要素分级图层控制树节点 */
@@ -97,7 +105,7 @@ export interface ThematicPackage {
   id: string
   name: string
   theme: string
-  theater: 'taiwan' | 'mideast' | 'custom'
+  theater: 'taiwan' | 'south_china' | 'mideast' | 'custom'
   visible: boolean
   expanded: boolean
   opacity: number

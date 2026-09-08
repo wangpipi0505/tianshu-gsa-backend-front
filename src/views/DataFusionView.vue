@@ -47,7 +47,12 @@
       <div class="fusion-workflow-card tactical-panel">
         <div class="tactical-panel-header">
           <span>当前融合工作：{{ activeJob?.name || '未选择' }}</span>
-          <el-button v-if="identityStore.canDo('publish')" size="small" type="primary" @click="onPublish">发布新资产版本</el-button>
+          <div class="workflow-actions">
+            <el-button size="small" plain @click="openCandidateReview">
+              候选关联人工研判 ({{ pendingCandidateCount }})
+            </el-button>
+            <el-button v-if="identityStore.canDo('publish')" size="small" type="primary" @click="onPublish">发布新资产版本</el-button>
+          </div>
         </div>
 
         <div class="workflow-steps-box">
@@ -186,24 +191,32 @@
         <el-button size="small" type="primary" @click="saveRule">保存并留痕</el-button>
       </template>
     </el-dialog>
+
+    <CandidateReviewModal ref="candidateReviewModalRef" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useFusionStore } from '@/stores/fusionStore'
 import { useIdentityStore } from '@/stores/identityStore'
 import DatasetRegistry from '@/components/fusion/DatasetRegistry.vue'
-import { ElMessage } from 'element-plus'
+import CandidateReviewModal from '@/components/fusion/CandidateReviewModal.vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { MappingRule } from '@/types/fusion'
 
 const router = useRouter()
+const route = useRoute()
 const fusionStore = useFusionStore()
 const identityStore = useIdentityStore()
 const activeJob = computed(() => fusionStore.activeJob())
+const pendingCandidateCount = computed(() =>
+  (activeJob.value?.candidates || []).filter((candidate) => candidate.decision === 'unconfirmed' || candidate.decision === 'deferred').length
+)
 const wizardVisible = ref(false)
 const ruleVisible = ref(false)
+const candidateReviewModalRef = ref<InstanceType<typeof CandidateReviewModal> | null>(null)
 const sampleKey = ref('')
 const sampleResult = ref<ReturnType<typeof fusionStore.interpretSample> | null>(null)
 const wizard = reactive({
@@ -303,10 +316,32 @@ function runSample(key: string) {
   sampleResult.value = fusionStore.interpretSample(job, opt.record)
 }
 
+function openCandidateReview() {
+  if (!activeJob.value) {
+    ElMessage.warning('请先选择融合工作')
+    return
+  }
+  candidateReviewModalRef.value?.open()
+}
+
 async function onPublish() {
   const jobId = activeJob.value?.id
   if (!jobId) {
     ElMessage.warning('没有可发布的融合工作')
+    return
+  }
+  if (pendingCandidateCount.value) {
+    ElMessage.warning(`当前仍有 ${pendingCandidateCount.value} 条候选关联待人工研判，暂不能发布`)
+    openCandidateReview()
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      `将发布“${activeJob.value?.name}”的当前融合结果，并生成资产版本、数据产品包装和版本历史记录。是否确认发布？`,
+      '资产版本发布确认',
+      { confirmButtonText: '确认发布', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
     return
   }
   try {
@@ -317,6 +352,18 @@ async function onPublish() {
     ElMessage.error(`发布失败：${message}`)
   }
 }
+
+watch(
+  () => route.query.assistantAction,
+  async (assistantAction) => {
+    if (!assistantAction) return
+    await nextTick()
+    if (assistantAction === 'candidate-review') openCandidateReview()
+    if (assistantAction === 'publish-asset') await onPublish()
+    await router.replace({ path: '/fusion' })
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped lang="scss">
@@ -392,6 +439,12 @@ async function onPublish() {
     padding: 12px 0;
     background: rgba(10, 18, 32, 0.5);
     border-radius: 4px;
+  }
+
+  .workflow-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .section-title {

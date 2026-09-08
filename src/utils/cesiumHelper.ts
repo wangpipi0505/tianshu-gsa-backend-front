@@ -1908,6 +1908,7 @@ export class CesiumController {
     const eventsVisible = factsTier ? factsTier.visible !== false : true
     const alive = new Set(events.map((e) => e.id))
     events.forEach((evt) => {
+      const isEventVisible = eventsVisible && sceneStore.isEventVisible(evt.id)
       const eid = `EVENT_${evt.id}`
       let entity = this.eventEntities.get(eid)
       const color =
@@ -1916,7 +1917,7 @@ export class CesiumController {
       if (!entity) {
         entity = this.viewer!.entities.add({
           id: eid,
-          show: eventsVisible,
+          show: isEventVisible,
           name: evt.eventName,
           position: pos,
           billboard: {
@@ -1938,7 +1939,7 @@ export class CesiumController {
         this.eventEntities.set(eid, entity)
       } else {
         entity.position = new Cesium.ConstantPositionProperty(pos)
-        entity.show = eventsVisible
+        entity.show = isEventVisible
         if (entity.billboard) {
           entity.billboard.scale = new Cesium.ConstantProperty(selectedEventId === evt.id ? 1.25 : 1)
         }
@@ -1954,7 +1955,7 @@ export class CesiumController {
         if (!link) {
           link = this.viewer!.entities.add({
             id: lid,
-            show: eventsVisible,
+            show: isEventVisible,
             polyline: {
               positions: [start, end],
               width: 1.4,
@@ -1967,7 +1968,7 @@ export class CesiumController {
           this.eventLinkEntities.set(lid, link)
         } else if (link.polyline) {
           link.polyline.positions = new Cesium.ConstantProperty([start, end])
-          link.show = eventsVisible
+          link.show = isEventVisible
         }
       })
     })

@@ -6,7 +6,7 @@
         <span class="act-title">{{ action.title }}</span>
       </div>
       <el-tag size="small" :type="action.executed ? 'success' : 'warning'">
-        {{ action.executed ? (action.actionType === 'construct_target' ? '已上图' : '已态势上图') : '待确认上图' }}
+        {{ actionStatusLabel }}
       </el-tag>
     </div>
 
@@ -24,7 +24,7 @@
         @click="execute"
       >
         <el-icon><Check /></el-icon>
-        <span>态势上图</span>
+        <span>{{ actionButtonLabel }}</span>
       </el-button>
 
       <el-button
@@ -43,12 +43,17 @@
 
 <script setup lang="ts">
 import type { ActionCard } from '@/types/agent'
-import type { TemporalPhase } from '@/types/situation'
+import type { SourceScope } from '@/types/analysis'
+import type { SituationTheater, TemporalPhase } from '@/types/situation'
 import { useAgentStore } from '@/stores/agentStore'
+import { useAnalysisStore } from '@/stores/analysisStore'
 import { useSituationStore } from '@/stores/situationStore'
 import { useSceneStore } from '@/stores/sceneStore'
 import { cesiumController } from '@/utils/cesiumHelper'
 import { applyConstructDraft, removeConstructedItem } from '@/utils/constructScene'
+import { resolveTheaterSituation } from '@/utils/theaterSituation'
+import router from '@/router'
+import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Lightning, Check, RefreshLeft } from '@element-plus/icons-vue'
 
@@ -57,11 +62,101 @@ const props = defineProps<{
 }>()
 
 const agentStore = useAgentStore()
+const analysisStore = useAnalysisStore()
 const situationStore = useSituationStore()
 const sceneStore = useSceneStore()
 
-function execute() {
-  agentStore.executeAction(props.action)
+const actionButtonLabel = computed(() => {
+  const labels: Partial<Record<ActionCard['actionType'], string>> = {
+    construct_target: '构建并上图',
+    focus_theater_situation: '加载当前区域全量态势',
+    open_candidate_review: '打开候选关联人工研判',
+    publish_fusion_asset: '打开资产版本发布确认',
+    apply_analysis_scope: '应用统计口径并重新计算',
+    open_analysis_publish: '打开专题成果发布'
+  }
+  return labels[props.action.actionType] || '态势上图'
+})
+
+const actionStatusLabel = computed(() => {
+  if (props.action.executed) {
+    const labels: Partial<Record<ActionCard['actionType'], string>> = {
+      construct_target: '已构建并上图',
+      focus_theater_situation: '已加载区域态势',
+      open_candidate_review: '已打开人工研判',
+      publish_fusion_asset: '已打开发布确认',
+      apply_analysis_scope: '已重新计算',
+      open_analysis_publish: '已打开成果发布'
+    }
+    return labels[props.action.actionType] || '已态势上图'
+  }
+  const labels: Partial<Record<ActionCard['actionType'], string>> = {
+    construct_target: '待构建',
+    focus_theater_situation: '待加载区域态势',
+    open_candidate_review: '待打开人工研判',
+    publish_fusion_asset: '待打开发布确认',
+    apply_analysis_scope: '待重新计算',
+    open_analysis_publish: '待打开成果发布'
+  }
+  return labels[props.action.actionType] || '待确认上图'
+})
+
+async function execute() {
+  if (props.action.actionType === 'focus_theater_situation') {
+    const theater = props.action.previewPayload.theater as SituationTheater | undefined
+    if (!theater) {
+      ElMessage.warning('区域态势参数不完整，无法加载')
+      return
+    }
+    const scope = resolveTheaterSituation(situationStore, theater)
+    if (!scope.targetIds.length) {
+      ElMessage.warning(`当前数据源未提供${scope.name}态势要素`)
+      return
+    }
+    await agentStore.executeAction(props.action)
+    sceneStore.showOnlySituationScope(scope)
+    situationStore.openedPopupTargetIds = []
+    situationStore.selectedTargetId = null
+    cesiumController.flyToCoordinates(scope.focusCoordinates, 650000)
+    ElMessage.success(`已加载${scope.name}全量态势：${scope.targetIds.length} 个目标、${scope.relationIds.length} 条关系、${scope.regionIds.length} 个区域、${scope.eventIds.length} 起事件`)
+    return
+  }
+
+  if (props.action.actionType === 'open_candidate_review') {
+    await agentStore.executeAction(props.action)
+    await router.push({ path: '/fusion', query: { assistantAction: 'candidate-review' } })
+    ElMessage.success('已打开候选关联人工研判，请在弹窗中逐条作出处理决定')
+    return
+  }
+
+  if (props.action.actionType === 'publish_fusion_asset') {
+    await agentStore.executeAction(props.action)
+    await router.push({ path: '/fusion', query: { assistantAction: 'publish-asset' } })
+    ElMessage.success('已打开资产版本发布确认，请在确认框中决定是否发布')
+    return
+  }
+
+  if (props.action.actionType === 'apply_analysis_scope') {
+    const sourceScope = props.action.previewPayload.sourceScope as SourceScope | undefined
+    if (!sourceScope) {
+      ElMessage.warning('统计口径参数不完整，无法重新计算')
+      return
+    }
+    await analysisStore.setSourceScope(sourceScope)
+    await agentStore.executeAction(props.action)
+    await router.push('/analytics')
+    ElMessage.success('已应用统计口径并完成重新计算')
+    return
+  }
+
+  if (props.action.actionType === 'open_analysis_publish') {
+    await agentStore.executeAction(props.action)
+    await router.push({ path: '/analytics', query: { assistantAction: 'publish-thematic' } })
+    ElMessage.success('已打开专题研判成果发布')
+    return
+  }
+
+  await agentStore.executeAction(props.action)
 
   if (props.action.actionType === 'construct_target') {
     const payload = props.action.previewPayload || {}
@@ -69,7 +164,7 @@ function execute() {
     const targetList = (Array.isArray(payload.targets) ? payload.targets : [payload]) as Array<{
       name: string; objectType: string; affiliation: string; longitude: number; latitude: number; altitude: number; speedKnots: number; remark?: string
     }>
-    targetList.forEach((t) => {
+    const constructResults = targetList.map((t) =>
       applyConstructDraft({
         name: t.name || '构建目标',
         objectType: (t.objectType as 'warship' | 'aircraft' | 'facility') || 'aircraft',
@@ -79,16 +174,32 @@ function execute() {
         altitude: t.altitude ?? 0,
         speedKnots: t.speedKnots ?? 0,
         remark: t.remark || props.action.basisExplanation,
+        theater: payload.theater as SituationTheater | undefined,
         produceMode: 'agent',
-        createdBy: '智能研判助手'
+        createdBy: '智能业务助手'
       })
-    })
-    props.action.previewPayload = { ...payload, executedCount: targetList.length }
-    const lastTarget = situationStore.targets[situationStore.targets.length - 1]
-    if (lastTarget) {
-      cesiumController.flyToLocation(lastTarget.longitude, lastTarget.latitude, targetList.length === 1 ? 260000 : 1200000, 0, -45)
+    )
+    props.action.previewPayload = {
+      ...payload,
+      executedCount: targetList.length,
+      targetIds: constructResults.map((result) => result.targetId)
     }
-    ElMessage.success(`已构建 ${targetList.length} 个目标（南海对峙态势场景）`)
+    const theater = payload.theater as SituationTheater | undefined
+    if (theater) {
+      const scope = resolveTheaterSituation(
+        situationStore,
+        theater,
+        constructResults.map((result) => result.targetId)
+      )
+      sceneStore.showOnlySituationScope(scope)
+      situationStore.openedPopupTargetIds = []
+      situationStore.selectedTargetId = null
+      cesiumController.flyToCoordinates(scope.focusCoordinates, 650000)
+      ElMessage.success(`已构建 ${targetList.length} 个目标，并加载${scope.name}全量态势：${scope.targetIds.length} 个目标、${scope.relationIds.length} 条关系、${scope.regionIds.length} 个区域、${scope.eventIds.length} 起事件`)
+    } else if (targetList.length) {
+      cesiumController.flyToCoordinates(targetList, 650000)
+      ElMessage.success(`已构建 ${targetList.length} 个目标，并按构建坐标聚焦当前态势区域`)
+    }
     return
   }
 
@@ -327,9 +438,17 @@ function rollback() {
   agentStore.rollbackAction(props.action)
 
   if (props.action.actionType === 'construct_target') {
-    const targetId = props.action.previewPayload?.targetId
-    if (targetId) removeConstructedItem(targetId)
-    ElMessage.success(`已移除构建目标：${props.action.previewPayload?.name || ''}`)
+    const targetIds = props.action.previewPayload?.targetIds || [props.action.previewPayload?.targetId]
+    targetIds.filter(Boolean).forEach((targetId: string) => removeConstructedItem(targetId))
+    const theater = props.action.previewPayload?.theater as SituationTheater | undefined
+    if (theater) {
+      const scope = resolveTheaterSituation(situationStore, theater)
+      sceneStore.showOnlySituationScope(scope)
+      cesiumController.flyToCoordinates(scope.focusCoordinates, 650000)
+      ElMessage.success(`已移除 ${targetIds.filter(Boolean).length} 个构建目标，保留${scope.name}全量态势`)
+    } else {
+      ElMessage.success(`已移除 ${targetIds.filter(Boolean).length} 个构建目标`)
+    }
     return
   }
 
@@ -373,6 +492,7 @@ function rollback() {
     props.action.actionType === 'focus_fighter' ||
     props.action.actionType === 'focus_mideast_convoy' ||
     props.action.actionType === 'focus_mideast_all' ||
+    props.action.actionType === 'focus_theater_situation' ||
     props.action.actionType === 'apply_weather_compensation'
   ) {
     // 撤销战区隔离与气象补偿：恢复被隐藏的全域图层，并还原环境基准值

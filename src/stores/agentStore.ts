@@ -10,6 +10,8 @@ import { FEATURED_PROMPTS, MOCK_AGENT_SCENARIOS, PAGE_GREETINGS, PAGE_FALLBACK_H
 import { USE_MOCK } from '@/config/dataSource'
 import { useIdentityStore } from '@/stores/identityStore'
 import { useSituationStore } from '@/stores/situationStore'
+import { useFusionStore } from '@/stores/fusionStore'
+import { createFusionCandidateReviewReply, createFusionPublishReply } from '@/utils/fusionAssistantReply'
 import router from '@/router'
 import {
   createAgentSession,
@@ -71,6 +73,7 @@ export const useAgentStore = defineStore('agent', () => {
     messages.value.push(userMsg)
 
     let scenarioMsgs: ChatMessage[] | undefined
+    let directReply: ChatMessage | undefined
     const isMideastQuery =
       promptText.includes('中东') ||
       promptText.includes('波斯湾') ||
@@ -79,14 +82,22 @@ export const useAgentStore = defineStore('agent', () => {
       promptText.includes('焦作')
 
     // 页面业务口径优先：融合 / 统计分析 / 领域本体专属指令（在各页面均可输入识别）
-    if (/发布|资产版本|候选关联|数据源|数据集|注册|融合任务/.test(promptText)) {
-      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_fusion_publish
+    if (/候选关联|关联确认|人工研判/.test(promptText)) {
+      directReply = createFusionCandidateReviewReply(useFusionStore().activeJob())
+    } else if (/发布|资产版本|数据产品包装/.test(promptText)) {
+      directReply = createFusionPublishReply(useFusionStore().activeJob())
+    } else if (/数据源|数据集|注册|融合任务/.test(promptText)) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_fusion_dataset_registry
     } else if (/统计|口径|聚合|研判成果|影响对比|分析模板/.test(promptText)) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_analytics_stats
     } else if (/本体|知识图谱|知识检索|概念/.test(promptText)) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_ontology_query
     } else if (promptText.includes('南海') || promptText.includes('菲律宾')) {
-      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_scs_construct
+      scenarioMsgs = /构建|场景|对峙|假设/.test(promptText)
+        ? MOCK_AGENT_SCENARIOS.scenario_scs_construct
+        : MOCK_AGENT_SCENARIOS.scenario_scs_situation
+    } else if (promptText.includes('台海') || promptText.includes('台湾海峡') || promptText.includes('海峡态势')) {
+      scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_taiwan_situation
     } else if (promptText.includes('构建') || promptText.includes('假设目标') || promptText.includes('态势场景')) {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_construct_patrol
     } else if (promptText.includes('清空') || promptText.includes('清屏') || promptText.includes('清除态势')) {
@@ -133,8 +144,9 @@ export const useAgentStore = defineStore('agent', () => {
       scenarioMsgs = MOCK_AGENT_SCENARIOS.scenario_mideast_situation
     }
 
-    if (scenarioMsgs && scenarioMsgs.length > 1) {
-      const agentMsg = JSON.parse(JSON.stringify(scenarioMsgs[1]))
+    const responseTemplate = directReply || (scenarioMsgs && scenarioMsgs.length > 1 ? scenarioMsgs[1] : undefined)
+    if (responseTemplate) {
+      const agentMsg = JSON.parse(JSON.stringify(responseTemplate))
       agentMsg.id = `MSG-AGENT-${Date.now()}`
       agentMsg.timestamp = new Date().toLocaleTimeString()
       const redacted = redactByClearance(promptText, agentMsg.content)
@@ -156,7 +168,7 @@ export const useAgentStore = defineStore('agent', () => {
     messages.value.push({
       id: `MSG-AGENT-${Date.now()}`,
       sender: 'agent',
-      content: `暂未能精确匹配该指令对应的研判场景。当前页面下智能研判助手支持：\n\n${hintLines}。\n\n请尝试换一种表述，或点击上方【指令模板】直接发起研判。`,
+      content: `暂未能精确匹配该指令对应的研判场景。当前页面下智能业务助手支持：\n\n${hintLines}。\n\n请尝试换一种表述，或点击上方【指令模板】直接发起研判。`,
       timestamp: new Date().toLocaleTimeString(),
       intentUnderstanding: {
         rawPrompt: promptText,
@@ -231,7 +243,7 @@ export const useAgentStore = defineStore('agent', () => {
   }
 
   async function executeAction(action: ActionCard) {
-    if (!USE_MOCK) {
+    if (!USE_MOCK && action.executionScope !== 'frontend') {
       await executeAgentAction(action.id)
     }
     action.executed = true

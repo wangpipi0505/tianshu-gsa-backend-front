@@ -10,7 +10,8 @@ import type {
   LayerTreeNode,
   WorkContent,
   CameraBookmark,
-  ThematicPackage
+  ThematicPackage,
+  SituationDisplayScope
 } from '@/types/scene'
 import type { SituationTarget } from '@/types/situation'
 import { fetchSceneDetail, fetchScenes, saveSceneLayers, saveThematicPackages, updateScene } from '@/api/scene'
@@ -37,6 +38,24 @@ export const useSceneStore = defineStore('scene', () => {
 
   // 当前工作内容列表
   const workContents = ref<WorkContent[]>([])
+
+  // 助手按区域加载态势时的显式范围；为空时沿用图层树的常规显隐控制。
+  const activeSituationScope = ref<SituationDisplayScope | null>(null)
+
+  function showOnlySituationScope(scope: SituationDisplayScope) {
+    activeSituationScope.value = {
+      targetIds: [...scope.targetIds],
+      relationIds: [...scope.relationIds],
+      regionIds: [...scope.regionIds],
+      eventIds: [...scope.eventIds]
+    }
+    const factsTier = contentLayers.value.find((layer) => layer.id === 'LAYER-FACTS')
+    if (factsTier) factsTier.visible = true
+  }
+
+  function clearSituationScope() {
+    activeSituationScope.value = null
+  }
 
   // 当前激活的态势场景
   const activeScene = ref<SituationalScene>({
@@ -132,7 +151,9 @@ export const useSceneStore = defineStore('scene', () => {
       }
     }
 
-    const pkg = thematicPackages.value.find((p) => p.theater === 'taiwan') || thematicPackages.value[0]
+    const pkg = target.theater
+      ? thematicPackages.value.find((item) => item.theater === target.theater)
+      : thematicPackages.value.find((item) => item.theater === 'taiwan') || thematicPackages.value[0]
     if (pkg) {
       pkg.visible = true
       if (!pkg.workItems) pkg.workItems = []
@@ -270,6 +291,7 @@ export const useSceneStore = defineStore('scene', () => {
   function isTargetVisible(targetId: string): boolean {
     const factsTier = contentLayers.value.find((l) => l.id === 'LAYER-FACTS')
     if (!factsTier || !factsTier.visible) return false
+    if (activeSituationScope.value) return activeSituationScope.value.targetIds.includes(targetId)
 
     let targetVisible = true
     const searchTarget = (nodes: LayerTreeNode[]) => {
@@ -289,6 +311,7 @@ export const useSceneStore = defineStore('scene', () => {
   function isFeatureVisible(targetId: string, featureKey: string): boolean {
     const factsTier = contentLayers.value.find((l) => l.id === 'LAYER-FACTS')
     if (!factsTier || !factsTier.visible) return false
+    if (activeSituationScope.value) return activeSituationScope.value.targetIds.includes(targetId)
 
     let featureVisible = false
     const searchFeature = (nodes: LayerTreeNode[]) => {
@@ -306,6 +329,7 @@ export const useSceneStore = defineStore('scene', () => {
 
   /** 判断战区多边形是否可见 */
   function isRegionVisible(regionId: string): boolean {
+    if (activeSituationScope.value) return activeSituationScope.value.regionIds.includes(regionId)
     for (const pkg of thematicPackages.value) {
       if (pkg.visible) {
         const reg = pkg.regions.find((r) => r.id === regionId)
@@ -317,11 +341,19 @@ export const useSceneStore = defineStore('scene', () => {
 
   /** 判断战术关系链路是否可见 (专题树"战术对抗与协同网络"分支的开关) */
   function isRelationVisible(relationId: string): boolean {
+    if (activeSituationScope.value) return activeSituationScope.value.relationIds.includes(relationId)
     for (const pkg of thematicPackages.value) {
       const rel = pkg.relations.find((r) => r.id === relationId)
       if (rel) return !!pkg.visible && rel.visible
     }
     return true
+  }
+
+  /** 当前区域范围内的态势事件；未限定区域时仅受事实层总开关控制。 */
+  function isEventVisible(eventId: string): boolean {
+    const factsTier = contentLayers.value.find((layer) => layer.id === 'LAYER-FACTS')
+    if (!factsTier || !factsTier.visible) return false
+    return activeSituationScope.value ? activeSituationScope.value.eventIds.includes(eventId) : true
   }
 
   /** 判断推演工作项是否可见 (实体树 LAYER-WORK 与专题树"推演成果"分支共同判定) */
@@ -542,6 +574,7 @@ export const useSceneStore = defineStore('scene', () => {
 
   /** 一键清空三维地球上的全部态势图层与要素 (除基础底图外) */
   function hideAllSituationLayers() {
+    clearSituationScope()
     contentLayers.value.forEach((layer) => {
       if (layer.id !== 'LAYER-BASE') {
         layer.visible = false
@@ -574,6 +607,7 @@ export const useSceneStore = defineStore('scene', () => {
 
   /** 一键恢复所有态势图层与要素 */
   function showAllSituationLayers() {
+    clearSituationScope()
     contentLayers.value.forEach((layer) => {
       layer.visible = true
       const setAllVisible = (nodes: LayerTreeNode[]) => {
@@ -603,6 +637,7 @@ export const useSceneStore = defineStore('scene', () => {
   }
 
   function applyMock() {
+    clearSituationScope()
     thematicPackages.value = cloneMock(MOCK_THEMATIC_PACKAGES)
     contentLayers.value = cloneMock(MOCK_CONTENT_LAYERS)
     workContents.value = cloneMock(MOCK_WORK_CONTENTS)
@@ -622,6 +657,7 @@ export const useSceneStore = defineStore('scene', () => {
   }
 
   async function loadFromApi(sceneId = 'SCENE-DEFAULT-01') {
+    clearSituationScope()
     if (USE_MOCK) {
       applyMock()
       return
@@ -655,6 +691,7 @@ export const useSceneStore = defineStore('scene', () => {
     thematicPackages,
     contentLayers,
     workContents,
+    activeSituationScope,
     activeScene,
     sceneList,
     bookmarks,
@@ -662,6 +699,7 @@ export const useSceneStore = defineStore('scene', () => {
     isFeatureVisible,
     isRegionVisible,
     isRelationVisible,
+    isEventVisible,
     isWorkItemVisible,
     isEnvironmentVisible,
     toggleThematicPackage,
@@ -669,6 +707,8 @@ export const useSceneStore = defineStore('scene', () => {
     syncThematicToContentLayers,
     showTargetAndFeatures,
     showOnlyTargetsAndFeatures,
+    showOnlySituationScope,
+    clearSituationScope,
     addThematicAsset,
     addPlotWorkItem,
     removePlotWorkItem,

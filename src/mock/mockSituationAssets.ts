@@ -829,6 +829,118 @@ export const MOCK_TARGETS: SituationTarget[] = [
     conflicts: [],
     evidenceIds: [],
     createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-08',
+    codeName: '我方海警巡逻船',
+    callsign: 'SCS-CG-01',
+    type: 'warship',
+    affiliation: 'friend',
+    status: 'active',
+    longitude: 115.1,
+    latitude: 13.2,
+    altitude: 0,
+    speedKnots: 17,
+    headingDeg: 118,
+    tracks: [
+      { longitude: 114.5, latitude: 12.8, altitude: 0, speedKnots: 15, headingDeg: 110, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 114.8, latitude: 13.0, altitude: 0, speedKnots: 16, headingDeg: 114, timestamp: '2026-08-25 14:00:00' },
+      { longitude: 115.1, latitude: 13.2, altitude: 0, speedKnots: 17, headingDeg: 118, timestamp: '2026-08-25 15:20:00' }
+    ],
+    operationalStatus: {
+      readinessLevel: '常态巡逻值守',
+      missionTask: '重点岛礁周边海上巡逻与识别查证',
+      sensorMode: '对海搜索雷达与光电设备值守',
+      datalinkState: '海上执法通信链路在线',
+      fuelOrHealthPercent: 93
+    },
+    sensorCoverage: {
+      radarRangeKm: 120,
+      scanAngleDeg: 180,
+      coneColor: '#00d2ff',
+      isScanning: true,
+      scanPeriodSec: 4,
+      mountType: 'sector'
+    },
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-09',
+    codeName: '我方补给保障船',
+    callsign: 'SCS-SUPPLY-01',
+    type: 'warship',
+    affiliation: 'friend',
+    status: 'active',
+    longitude: 113.9,
+    latitude: 12.5,
+    altitude: 0,
+    speedKnots: 13,
+    headingDeg: 72,
+    tracks: [
+      { longitude: 113.2, latitude: 12.1, altitude: 0, speedKnots: 12, headingDeg: 68, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 113.6, latitude: 12.3, altitude: 0, speedKnots: 13, headingDeg: 70, timestamp: '2026-08-25 14:00:00' },
+      { longitude: 113.9, latitude: 12.5, altitude: 0, speedKnots: 13, headingDeg: 72, timestamp: '2026-08-25 15:20:00' }
+    ],
+    operationalStatus: {
+      readinessLevel: '保障任务执行中',
+      missionTask: '为南海巡逻编队提供补给保障',
+      sensorMode: '航行警戒雷达值守',
+      datalinkState: '编队保障通信链路在线',
+      fuelOrHealthPercent: 95
+    },
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-10',
+    codeName: '外军无人侦察机',
+    callsign: 'UAV-RECON-01',
+    type: 'aircraft',
+    affiliation: 'foe',
+    status: 'active',
+    longitude: 118.9,
+    latitude: 14.1,
+    altitude: 7200,
+    speedKnots: 240,
+    headingDeg: 208,
+    tracks: [
+      { longitude: 119.7, latitude: 14.8, altitude: 7000, speedKnots: 230, headingDeg: 212, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 119.3, latitude: 14.4, altitude: 7100, speedKnots: 235, headingDeg: 210, timestamp: '2026-08-25 14:00:00' },
+      { longitude: 118.9, latitude: 14.1, altitude: 7200, speedKnots: 240, headingDeg: 208, timestamp: '2026-08-25 15:20:00' }
+    ],
+    radarFeatures: {
+      rcsMeanSqMeters: 1.8,
+      dopplerShiftHz: 135,
+      frequencyBand: 'C波段数据链路',
+      pulseWidthUs: 18
+    },
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
+  },
+  {
+    id: 'Target-SCS-11',
+    codeName: '过往商船',
+    callsign: 'MV-OCEAN-07',
+    type: 'warship',
+    affiliation: 'neutral',
+    status: 'active',
+    longitude: 115.4,
+    latitude: 10.8,
+    altitude: 0,
+    speedKnots: 14,
+    headingDeg: 42,
+    tracks: [
+      { longitude: 114.8, latitude: 10.2, altitude: 0, speedKnots: 13, headingDeg: 40, timestamp: '2026-08-25 13:00:00' },
+      { longitude: 115.1, latitude: 10.5, altitude: 0, speedKnots: 14, headingDeg: 41, timestamp: '2026-08-25 14:00:00' },
+      { longitude: 115.4, latitude: 10.8, altitude: 0, speedKnots: 14, headingDeg: 42, timestamp: '2026-08-25 15:20:00' }
+    ],
+    conflicts: [],
+    evidenceIds: [],
+    createdProductVersion: 'PROD-SITUATION-SCS-v1.0'
   }
 ]
 
@@ -967,6 +1079,39 @@ export const MOCK_RELATIONS: SpatialRelation[] = [
     confidence: 0.92,
     description: '南海岛礁雷达站为巡逻编队提供远程对空对海警戒信息支援',
     isActive: true
+  },
+  {
+    id: 'REL-SCS-03',
+    relationType: 'coordination',
+    relationName: '【海上协同巡逻】海警巡逻船与维权编队协同线',
+    sourceTargetId: 'Target-SCS-08',
+    targetTargetId: 'Target-SCS-01',
+    spatialDistanceKm: 202.0,
+    confidence: 0.91,
+    description: '我方海警巡逻船与南海维权巡逻编队保持协同巡逻，通过海上执法通信链路共享识别信息。',
+    isActive: true
+  },
+  {
+    id: 'REL-SCS-04',
+    relationType: 'escort',
+    relationName: '【补给保障】补给船对巡航护卫舰保障航线',
+    sourceTargetId: 'Target-SCS-09',
+    targetTargetId: 'Target-SCS-06',
+    spatialDistanceKm: 135.0,
+    confidence: 0.89,
+    description: '我方补给保障船向南海巡航护卫舰航行方向机动，为持续巡逻任务提供补给保障。',
+    isActive: true
+  },
+  {
+    id: 'REL-SCS-05',
+    relationType: 'scan',
+    relationName: '【空中侦察】外军无人机对岛礁周边扫描线',
+    sourceTargetId: 'Target-SCS-10',
+    targetTargetId: 'Target-SCS-04',
+    spatialDistanceKm: 750.0,
+    confidence: 0.86,
+    description: '外军无人侦察机沿岛礁以东空域活动，对我方南海岛礁雷达站及周边海上目标保持侦察航线。',
+    isActive: true
   }
 ]
 
@@ -1085,6 +1230,22 @@ export const MOCK_REGIONS: SituationRegion[] = [
     color: '#00d2ff',
     opacity: 0.12,
     description: '南海维权巡逻与对峙警戒海域，覆盖我方巡逻编队活动区域与外军舰机抵近侦察区域'
+  },
+  {
+    id: 'REG-SCS-02',
+    name: '【南海保障协同区】巡逻编队补给与商船通航海域',
+    category: 'coordination_area',
+    coordinates: [
+      [112.8, 9.8],
+      [116.8, 9.8],
+      [116.8, 13.4],
+      [112.8, 13.4]
+    ],
+    minAltitude: 0,
+    maxAltitude: 5000,
+    color: '#52c41a',
+    opacity: 0.12,
+    description: '南海巡逻编队补给保障船航线与过往商船通航的协同关注海域。'
   }
 ]
 
@@ -1169,6 +1330,39 @@ export const MOCK_EVENTS: SituationEvent[] = [
     affectedTargetIds: ['Target-SCS-07'],
     severity: 'normal',
     description: '菲律宾武装渔船编队在南海岛礁周边海域异常航行，航迹呈环绕状态，疑似实施情报收集活动。',
+    evidenceIds: []
+  },
+  {
+    id: 'EVT-SCS-03',
+    eventName: '南海巡逻编队海警协同巡逻',
+    category: 'joint_patrol',
+    timestamp: '2026-08-25 14:45:00',
+    location: [115.1, 13.2, 0],
+    affectedTargetIds: ['Target-SCS-01', 'Target-SCS-08'],
+    severity: 'normal',
+    description: '我方南海维权巡逻编队与海警巡逻船在重点岛礁周边海域建立协同巡逻与识别查证任务。',
+    evidenceIds: []
+  },
+  {
+    id: 'EVT-SCS-04',
+    eventName: '外军无人机南海抵近侦察',
+    category: 'air_reconnaissance',
+    timestamp: '2026-08-25 15:05:00',
+    location: [118.9, 14.1, 7200],
+    affectedTargetIds: ['Target-SCS-10', 'Target-SCS-04'],
+    severity: 'warning',
+    description: '外军无人侦察机沿岛礁以东空域向西南方向活动，纳入当前海空态势持续跟踪。',
+    evidenceIds: []
+  },
+  {
+    id: 'EVT-SCS-05',
+    eventName: '南海商船通航保障监视',
+    category: 'maritime_traffic',
+    timestamp: '2026-08-25 15:10:00',
+    location: [115.4, 10.8, 0],
+    affectedTargetIds: ['Target-SCS-09', 'Target-SCS-11'],
+    severity: 'normal',
+    description: '我方补给保障船与过往商船在南海保障协同区内通航，纳入巡逻任务的海上交通态势监视。',
     evidenceIds: []
   }
 ]
